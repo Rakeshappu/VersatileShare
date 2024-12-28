@@ -39,7 +39,7 @@ function App() {
               element={
                 <PrivateRoute role="student">
                   <Header />
-                  <Sidebar/>
+                  {/* <Sidebar/> */}
                   <Dashboard />
                 </PrivateRoute>
               }

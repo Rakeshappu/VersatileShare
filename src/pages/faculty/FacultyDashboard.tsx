@@ -37,7 +37,9 @@ const mockAnalytics: ResourceAnalytics = {
   })),
   topDepartments: [
     { name: 'Computer Science', count: 450 },
-    { name: 'Electronics', count: 320 },
+    { name: 'Information Science', count: 450 },
+    { name: 'Electronics & Communication', count: 320 },
+    { name: 'Electrics', count: 320 },
     { name: 'Mechanical', count: 280 },
     { name: 'Civil', count: 200 }
   ],

@@ -33,7 +33,9 @@ export const SignupForm = () => {
 
   const departments = [
     'Computer Science',
-    'Electronics',
+    'Information Science',
+    'Electronics & Communication',
+    'Electrics',
     'Mechanical',
     'Civil'
   ];

@@ -31,7 +31,9 @@ export const SignupForm = ({ role, onSubmit }: SignupFormProps) => {
 
   const departments = [
     { value: 'Computer Science', label: 'Computer Science' },
-    { value: 'Electronics', label: 'Electronics' },
+    { value: 'Information Science', label: 'Information Science' },
+    { value: 'Electronics & Communication', label: 'Electronics & Communication' },
+    { value: 'Electrics', label: 'Electrics' },
     { value: 'Mechanical', label: 'Mechanical' },
     { value: 'Civil', label: 'Civil' }
   ];

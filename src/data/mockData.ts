@@ -2,9 +2,9 @@ import { User, Activity, Resource } from '../types';
 
 export const currentUser: User = {
   id: '1',
-  name: 'John Doe',
-  semester: 4,
-  department: 'Computer Science',
+  name: 'Varun Bharadwaj',
+  semester: 7,
+  department: 'Information Science & Engineering',
   streak: 5,
   lastActive: '2024-03-20',
   avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'
