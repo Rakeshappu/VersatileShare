@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FileText, Video, Link as LinkIcon, Download } from 'lucide-react';
 import { Resource } from '../../types';
@@ -37,6 +38,8 @@ export const ResourceCard = ({ resource, onDownload }: ResourceCardProps) => {
         <button 
           onClick={handleDownload}
           className="text-indigo-600 hover:text-indigo-700"
+          aria-label="Download resource"
+          title="Download resource"
         >
           <Download className="h-5 w-5" />
         </button>

@@ -1,4 +1,4 @@
-// pages/api/auth/verify-otp.ts
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { User } from '../../../lib/db/models/User';
 import connectDB from '../../../lib/db/connect';
@@ -28,18 +28,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { email, otp } = req.body;
     console.log('Received verification request:', { email, otp });
-    console.log('Verifying OTP:', { email, otp });
+    
     if (!email || !otp) {
       return res.status(400).json({ error: 'Email and OTP are required' });
     }
 
     console.log('Searching for user with criteria:', {
-        email,
-        verificationCode: otp,
-        verificationCodeExpiry: { $gt: new Date() }
-      });
+      email,
+      verificationCode: otp,
+      verificationCodeExpiry: { $gt: new Date() }
+    });
 
-      // First, find the user by email to debug
+    // First, find the user by email to debug
     const userByEmail = await User.findOne({ email });
     console.log('User found by email:', userByEmail ? {
       email: userByEmail.email,
@@ -54,24 +54,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       verificationCode: otp,
       verificationCodeExpiry: { $gt: new Date() }
     });
-    console.log('Found user:', user);
-
-    console.log('User found:', user ? 'Yes' : 'No');
-    if (user) {
-      console.log('OTP details:', {
-        savedOTP: user.verificationCode,
-        expiry: user.verificationCodeExpiry,
-        currentTime: new Date()
-      });
-    }
 
     if (!user) {
-      return res.status(400).json({ error: 'Invalid or expired OTP',
+      return res.status(400).json({ 
+        error: 'Invalid or expired OTP',
         debug: {
           emailFound: !!userByEmail,
           otpMatched: userByEmail?.verificationCode === otp,
           notExpired: userByEmail?.verificationCodeExpiry ? new Date(userByEmail.verificationCodeExpiry) > new Date() : false
-        } });
+        } 
+      });
     }
 
     // Update user
@@ -79,10 +71,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     user.verificationCode = undefined;
     user.verificationCodeExpiry = undefined;
     await user.save();
+    console.log('Email verification successful for:', email);
 
     res.status(200).json({ message: 'Email verified successfully' });
   } catch (error) {
     console.error('OTP verification error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: String(error) });
   }
-}   
+}

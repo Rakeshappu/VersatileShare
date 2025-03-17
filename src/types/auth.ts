@@ -1,4 +1,5 @@
-export type UserRole = 'student' | 'faculty';
+
+export type UserRole = 'student' | 'faculty' | 'admin';
 
 export interface User {
   _id: string;
@@ -18,7 +19,7 @@ export interface SignupFormData {
   department: string;
   phoneNumber: string;
   semester?: number; // Required for students
-  secretNumber?: string; // Required for faculty
+  secretNumber?: string; // Required for faculty and admin
 }
 
 export interface LoginFormData {

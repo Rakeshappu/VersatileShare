@@ -1,7 +1,8 @@
-import React from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../../../types/auth';
-import { GraduationCap, Users } from 'lucide-react';
+import { GraduationCap, Users, Share2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export const RoleSelection = () => {
   const navigate = useNavigate();
@@ -12,38 +13,53 @@ export const RoleSelection = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Welcome to Versatile Share
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Please select your role to continue
-          </p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        className="text-center mb-10"
+      >
+        <div className="flex items-center justify-center mb-6">
+          <Share2 className="h-12 w-12 text-indigo-600" />
+          <span className="ml-2 text-4xl font-bold text-indigo-600">VersatileShare</span>
         </div>
-        
-        <div className="mt-8 space-y-4">
-          <button
-            onClick={() => handleRoleSelect('student')}
-            className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-          >
-            <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-              <GraduationCap className="h-5 w-5 text-indigo-300" />
-            </span>
-            Continue as Student
-          </button>
+        <h2 className="text-3xl font-extrabold text-gray-900">
+          Choose Your Role
+        </h2>
+        <p className="mt-2 text-lg text-gray-600">
+          Select how you'll use VersatileShare
+        </p>
+      </motion.div>
+      
+      <div className="w-full max-w-md space-y-6">
+        <motion.button
+          initial={{ x: -100, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          whileHover={{ scale: 1.03 }}
+          onClick={() => handleRoleSelect('student')}
+          className="group relative w-full flex items-center justify-center py-6 px-4 border-2 border-indigo-100 text-lg font-medium rounded-xl text-indigo-600 bg-white hover:bg-indigo-50 transition-all shadow-md hover:shadow-lg"
+        >
+          <span className="absolute left-0 inset-y-0 flex items-center pl-6">
+            <GraduationCap className="h-8 w-8 text-indigo-500" />
+          </span>
+          <span className="ml-4">Continue as Student</span>
+        </motion.button>
 
-          <button
-            onClick={() => handleRoleSelect('faculty')}
-            className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
-          >
-            <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-              <Users className="h-5 w-5 text-green-300" />
-            </span>
-            Continue as Faculty
-          </button>
-        </div>
+        <motion.button
+          initial={{ x: 100, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          whileHover={{ scale: 1.03 }}
+          onClick={() => handleRoleSelect('faculty')}
+          className="group relative w-full flex items-center justify-center py-6 px-4 border-2 border-purple-100 text-lg font-medium rounded-xl text-purple-600 bg-white hover:bg-purple-50 transition-all shadow-md hover:shadow-lg"
+        >
+          <span className="absolute left-0 inset-y-0 flex items-center pl-6">
+            <Users className="h-8 w-8 text-purple-500" />
+          </span>
+          <span className="ml-4">Continue as Faculty</span>
+        </motion.button>
       </div>
     </div>
   );

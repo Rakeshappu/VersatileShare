@@ -1,14 +1,12 @@
+
 import { transporter } from './config';
 import { getVerificationEmailTemplate } from './templates';
 
-export async function sendVerificationEmail(email: string, token: string,otp:string) {
+export async function sendVerificationEmail(email: string, token: string, otp: string) {
   try {
     console.log('Attempting to send verification email to:', email);
-    console.log('Sending verification email:', {
-      email,
-      otp,
-      token
-    });
+    console.log('Sending verification email with OTP:', otp);
+    
     const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
     const verificationLink = `${baseUrl}/verify-email?token=${token}`;
     
@@ -17,9 +15,15 @@ export async function sendVerificationEmail(email: string, token: string,otp:str
     const mailOptions = {
       from: `"Versatile Share" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Verify your Versatile Share account',
+      subject: 'Your Versatile Share Verification Code',
       html: getVerificationEmailTemplate(otp)
     };
+
+    console.log('Mail options prepared:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject
+    });
 
     const info = await transporter.sendMail(mailOptions);
     
@@ -32,6 +36,6 @@ export async function sendVerificationEmail(email: string, token: string,otp:str
     return true;
   } catch (error) {
     console.error('Failed to send verification email:', error);
-    throw new Error('Failed to send verification email');
+    throw new Error(`Failed to send verification email: ${String(error)}`);
   }
 }

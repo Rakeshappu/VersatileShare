@@ -1,11 +1,9 @@
-import { createTransport } from 'nodemailer';
+
 import nodemailer from 'nodemailer';
 
 // Email configuration
 export const emailConfig = {
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
@@ -16,13 +14,8 @@ export const emailConfig = {
 };
 
 // Create transporter
-export const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+export const transporter = nodemailer.createTransport(emailConfig);
+
 // Verify email configuration
 export const verifyEmailConfig = async () => {
   try {

@@ -1,54 +1,72 @@
-// pages/api/auth/send-otp.ts
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { User } from '../../../lib/db/models/User';
-import { generateOTP } from '../../../lib/auth/otp';
+import { generateOTP, generateVerificationToken } from '../../../lib/auth/jwt';
 import { sendVerificationEmail } from '../../../lib/email/sendEmail';
+import connectDB from '../../../lib/db/connect';
+import { verifyEmailConfig } from '../../../lib/email/config';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
   
   try {
-    const { email } = req.body;
-    const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    console.log('Generated OTP:', generateOTP, 'Expiry:', new Date(Date.now() + 10 * 60 * 1000));
+    // Verify email configuration
+    const emailConfigStatus = await verifyEmailConfig();
+    if (!emailConfigStatus) {
+      console.error('Email configuration is invalid');
+      return res.status(500).json({ error: 'Email service configuration failed' });
+    }
 
-    await User.findOneAndUpdate(
+    // Connect to database
+    await connectDB();
+    
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    console.log('Generating new OTP for:', email);
+    const otp = generateOTP();
+    const verificationToken = generateVerificationToken();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    console.log('New OTP generated:', otp, 'Expiry:', otpExpiry);
+
+    const user = await User.findOneAndUpdate(
       { email }, 
-      { verificationOTP: otp, verificationOTPExpiry: otpExpiry }
+      { 
+        verificationCode: otp, 
+        verificationCodeExpiry: otpExpiry,
+        verificationToken: verificationToken,
+        verificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+      },
+      { new: true, upsert: false }
     );
 
-    await sendVerificationEmail(email,token, otp);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log('Attempting to send email to:', email, 'with OTP:', otp);
+    await sendVerificationEmail(email, verificationToken, otp);
+    console.log('OTP sent successfully to:', email);
+    
     res.status(200).json({ message: 'OTP sent successfully' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to send OTP' });
+    console.error('Failed to send OTP:', error);
+    res.status(500).json({ error: 'Failed to send OTP', details: String(error) });
   }
 }
-
-
-
-// export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-//   if (req.method !== 'POST') return res.status(405).end();
-
-//   try {
-//     const { email, otp } = req.body;
-//     const user = await User.findOne({ 
-//       email,
-//       verificationOTP: otp,
-//       verificationOTPExpiry: { $gt: new Date() }
-//     });
-
-//     if (!user) {
-//       return res.status(400).json({ error: 'Invalid or expired OTP' });
-//     }
-
-//     user.isEmailVerified = true;
-//     user.verificationOTP = undefined;
-//     user.verificationOTPExpiry = undefined;
-//     await user.save();
-
-//     res.status(200).json({ message: 'Email verified successfully' });
-//   } catch (error) {
-//     res.status(500).json({ error: 'Verification failed' });
-//   }
-// }

@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -13,7 +14,7 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: function() {
+    required: function(this: any) {
       return !this.googleId;
     },
   },
@@ -23,7 +24,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['student', 'faculty'],
+    enum: ['student', 'faculty', 'admin'],
     required: true,
   },
   department: {
@@ -36,13 +37,13 @@ const userSchema = new mongoose.Schema({
   },
   semester: {
     type: Number,
-    required: function() {
+    required: function(this: any) {
       return this.role === 'student';
     },
   },
   secretNumber: {
     type: String,
-    required: function() {
+    required: function(this: any) {
       return this.role === 'faculty';
     },
   },

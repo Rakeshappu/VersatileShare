@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
-import { FileText, Video, Link as LinkIcon, BarChart2, Eye, ThumbsUp, MessageSquare } from 'lucide-react';
+
+import { useState } from 'react';
+import { FileText, Video, Link as LinkIcon, BarChart2, Eye, ThumbsUp, MessageSquare, Trash2 } from 'lucide-react';
 import { FacultyResource } from '../../types/faculty';
 import { formatDate } from '../../utils/dateUtils';
 
 interface ResourceListProps {
   resources: FacultyResource[];
   onViewAnalytics: (resourceId: string) => void;
+  showDeleteButton?: boolean;
 }
 
 type FilterOption = 'all' | 'document' | 'video' | 'note' | 'link';
 type SortOption = 'date' | 'views' | 'likes' | 'comments';
 
-export const ResourceList = ({ resources, onViewAnalytics }: ResourceListProps) => {
+declare global {
+  interface Window {
+    sharedResources: FacultyResource[];
+  }
+}
+
+export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = false }: ResourceListProps) => {
   const [filterType, setFilterType] = useState<FilterOption>('all');
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [selectedSemester, setSelectedSemester] = useState<number | 'all'>('all');
@@ -25,6 +33,16 @@ export const ResourceList = ({ resources, onViewAnalytics }: ResourceListProps) 
       default:
         return <FileText className="h-5 w-5" />;
     }
+  };
+
+  const handleDeleteResource = (resourceId: string) => {
+    // Update the shared resources to reflect deletion
+    if (window.sharedResources) {
+      window.sharedResources = window.sharedResources.filter(r => r.id !== resourceId);
+    }
+    
+    // Show a toast or notification
+    alert('Resource deleted successfully');
   };
 
   const filteredResources = resources
@@ -85,57 +103,74 @@ export const ResourceList = ({ resources, onViewAnalytics }: ResourceListProps) 
         </div>
       </div>
 
-      <div className="space-y-4">
-        {filteredResources.map((resource) => (
-          <div
-            key={resource.id}
-            className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-4">
-                <div className={`p-2 rounded-lg ${
-                  resource.type === 'video' ? 'bg-red-100 text-red-600' :
-                  resource.type === 'link' ? 'bg-blue-100 text-blue-600' :
-                  'bg-green-100 text-green-600'
-                }`}>
-                  {getIcon(resource.type)}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-800">{resource.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{resource.description}</p>
-                  <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                    <span>Semester {resource.semester}</span>
-                    <span>{resource.subject}</span>
-                    <span>{formatDate(resource.uploadDate)}</span>
+      {filteredResources.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          <p>No resources found. Upload some resources to get started.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredResources.map((resource) => (
+            <div
+              key={resource.id}
+              className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-4">
+                  <div className={`p-2 rounded-lg ${
+                    resource.type === 'video' ? 'bg-red-100 text-red-600' :
+                    resource.type === 'link' ? 'bg-blue-100 text-blue-600' :
+                    'bg-green-100 text-green-600'
+                  }`}>
+                    {getIcon(resource.type)}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-800">{resource.title}</h3>
+                    <p className="text-sm text-gray-600 mt-1">{resource.description}</p>
+                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                      <span>Semester {resource.semester}</span>
+                      <span>{resource.subject}</span>
+                      <span>{formatDate(resource.uploadDate)}</span>
+                    </div>
                   </div>
                 </div>
+                <div className="flex items-center space-x-3">
+                  {showDeleteButton && (
+                    <button
+                      onClick={() => handleDeleteResource(resource.id)}
+                      className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                      <span className="text-sm">Delete</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onViewAnalytics(resource.id)}
+                    className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700"
+                  >
+                    <BarChart2 className="h-5 w-5" />
+                    <span className="text-sm">Analytics</span>
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => onViewAnalytics(resource.id)}
-                className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700"
-              >
-                <BarChart2 className="h-5 w-5" />
-                <span className="text-sm">Analytics</span>
-              </button>
-            </div>
 
-            <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
-              <div className="flex items-center space-x-1">
-                <Eye className="h-4 w-4" />
-                <span>{resource.stats.views} views</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <ThumbsUp className="h-4 w-4" />
-                <span>{resource.stats.likes} likes</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <MessageSquare className="h-4 w-4" />
-                <span>{resource.stats.comments} comments</span>
+              <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
+                <div className="flex items-center space-x-1">
+                  <Eye className="h-4 w-4" />
+                  <span>{resource.stats.views} views</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <ThumbsUp className="h-4 w-4" />
+                  <span>{resource.stats.likes} likes</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <MessageSquare className="h-4 w-4" />
+                  <span>{resource.stats.comments} comments</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

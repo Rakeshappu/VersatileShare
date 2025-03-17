@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+
+import { useState, ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LoginFormData } from '../../types/auth';
 import { FormField } from './FormField';
+import { Share2, LogIn } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface LoginFormProps {
   onSubmit: (data: LoginFormData) => void;
@@ -20,30 +23,55 @@ export const LoginForm = ({ onSubmit, error }: LoginFormProps) => {
     onSubmit(formData);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl"
+      >
+        <div className="text-center">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex items-center justify-center mb-6"
+          >
+            <Share2 className="h-10 w-10 text-indigo-600" />
+            <span className="ml-2 text-3xl font-bold text-indigo-600">VersatileShare</span>
+          </motion.div>
+          
+          <h2 className="text-3xl font-extrabold text-gray-900">
             Welcome back
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to your account
+          <p className="mt-2 text-sm text-gray-600">
+            Sign in to access your account
           </p>
         </div>
 
         {error && (
-          <div className="rounded-md bg-red-50 p-4">
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="rounded-md bg-red-50 p-4 border-l-4 border-red-400"
+          >
             <div className="text-sm text-red-700">{error}</div>
-          </div>
+          </motion.div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm space-y-4">
+        <motion.form 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+          className="mt-8 space-y-6" 
+          onSubmit={handleSubmit}
+        >
+          <div className="space-y-4">
             <FormField
               label="Email"
               name="email"
@@ -65,16 +93,39 @@ export const LoginForm = ({ onSubmit, error }: LoginFormProps) => {
             />
           </div>
 
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Sign in
-            </button>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                Remember me
+              </label>
+            </div>
+
+            <div className="text-sm">
+              <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+                Forgot password?
+              </a>
+            </div>
           </div>
 
-          <div className="text-center text-sm">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
+          >
+            <span className="absolute left-0 inset-y-0 flex items-center pl-3">
+              <LogIn className="h-5 w-5 text-indigo-300" />
+            </span>
+            Sign in
+          </motion.button>
+
+          <div className="text-center text-sm pt-4">
             <span className="text-gray-600">Don't have an account?</span>{' '}
             <Link 
               to="/auth/role"
@@ -83,8 +134,8 @@ export const LoginForm = ({ onSubmit, error }: LoginFormProps) => {
               Sign up here
             </Link>
           </div>
-        </form>
-      </div>
+        </motion.form>
+      </motion.div>
     </div>
   );
 };
