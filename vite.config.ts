@@ -10,7 +10,7 @@ export default defineConfig({
     nodePolyfills(),
   ],
   server: {
-    port: 5173, // Use port 5173 as requested by the user
+    port: 5173, 
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
