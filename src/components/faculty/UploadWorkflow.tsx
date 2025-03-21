@@ -21,7 +21,6 @@ export const UploadWorkflow = ({
 }: UploadWorkflowProps) => {
   const [step, setStep] = useState<'initial' | 'semester-selection' | 'subject-creation'>('initial');
   const [selectedSemester, setSelectedSemester] = useState<SemesterNumber | null>(null);
-  const [subjects, setSubjects] = useState<SubjectData[]>([]);
 
   // Get existing subjects
   const existingSubjects: SubjectFolder[] = window.subjectFolders || [];

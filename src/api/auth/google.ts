@@ -1,3 +1,4 @@
+
 import { Request, Response } from 'express';
 import { User } from '../../lib/db/models/User';
 import { verifyGoogleToken } from '../../lib/auth/google';
@@ -28,7 +29,7 @@ export default async function handler(req: Request, res: Response) {
     }
 
     // Generate JWT token
-    const jwtToken = generateToken(user._id);
+    const jwtToken = generateToken(user._id.toString());
 
     res.json({
       token: jwtToken,

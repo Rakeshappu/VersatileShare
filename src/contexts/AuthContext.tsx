@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User,SignupFormData } from '../types/auth';
+import { User, SignupFormData } from '../types/auth';
 import { authService } from '../services/auth.service';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,25 +16,40 @@ interface AuthContextType {
   clearError: () => void;
   verifyOTP: (email: string, otp: string) => Promise<void>;
   resendOTP: (email: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const initAuth = async () => {
       try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        
         const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
+        if (currentUser) {
+          setUser(currentUser);
+          setIsAuthenticated(true);
+        }
       } catch (error) {
         console.error('Auth initialization failed:', error);
+        // Clear potentially invalid auth data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
       } finally {
         setLoading(false);
       }
@@ -42,34 +58,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
-  const checkAuth = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      const { user } = await authService.verifyToken();
-      setUser(user);
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
       clearError();
       const response = await authService.login({ email, password });
       setUser(response.user);
-      navigate(response.user.role === 'faculty' ? '/faculty/dashboard' : '/dashboard');
+      setIsAuthenticated(true);
+      
+      // Navigate based on user role
+      if (response.user.role === 'faculty') {
+        navigate('/faculty/dashboard');
+      } else if (response.user.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+      
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'Login failed');
       throw error;
     } finally {
       setLoading(false);
@@ -83,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.signup(userData);
       navigate('/auth/verify', { state: { email: userData.email } });
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'Signup failed');
       throw error;
     } finally {
       setLoading(false);
@@ -92,7 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
+    setIsAuthenticated(false);
     navigate('/auth/login');
   };
 
@@ -101,9 +110,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       clearError();
       await authService.verifyEmail(token);
-      navigate('/auth/login');
+      navigate('/auth/login', { 
+        state: { message: 'Email verified successfully! You can now log in.' } 
+      });
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'Email verification failed');
       throw error;
     } finally {
       setLoading(false);
@@ -115,9 +126,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       clearError();
       await authService.verifyOTP(email, otp);
-      navigate('/auth/login');
+      navigate('/auth/login', { 
+        state: { message: 'OTP verified successfully! You can now log in.' } 
+      });
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'OTP verification failed');
       throw error;
     } finally {
       setLoading(false);
@@ -129,8 +142,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       clearError();
       await authService.resendOTP(email);
+      setError('OTP has been resent to your email');
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'Failed to resend OTP');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const resendVerification = async (email: string) => {
+    try {
+      setLoading(true);
+      clearError();
+      await authService.resendVerification(email);
+      setError('Verification email has been resent');
+    } catch (error: any) {
+      setError(error.message || 'Failed to resend verification email');
       throw error;
     } finally {
       setLoading(false);
@@ -143,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     error,
-    setError,  
+    setError,
     login,
     signup,
     logout,
@@ -151,8 +179,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearError,
     verifyOTP,
     resendOTP,
+    resendVerification,
+    isAuthenticated,
   };
-
 
   return (
     <AuthContext.Provider value={value}>

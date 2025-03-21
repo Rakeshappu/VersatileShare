@@ -5,141 +5,217 @@ import { ResourceList } from '../../components/faculty/ResourceList';
 import { ResourceAnalyticsView } from '../../components/faculty/ResourceAnalytics';
 import { UploadFormData, FacultyResource, ResourceAnalytics } from '../../types/faculty';
 import { UploadWorkflow } from '../../components/faculty/UploadWorkflow';
+import { motion, AnimatePresence } from 'framer-motion';
+import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { checkDatabaseConnection } from '../../services/resource.service';
+import { MongoDBStatusBanner } from '../../components/auth/MongoDBStatusBanner';
+import { API_ROUTES } from '../../lib/api/routes';
+import { toast } from 'react-hot-toast';
 
-// Mock data - Replace with actual API calls
-const mockResources: FacultyResource[] = [
-  {
-    id: '1',
-    title: 'Introduction to Data Structures',
-    description: 'Comprehensive guide to basic data structures',
-    type: 'document',
-    subject: 'Data Structures',
-    semester: 3,
-    uploadDate: '2024-03-20',
-    stats: {
-      views: 1250,
-      likes: 45,
-      comments: 12,
-      downloads: 89,
-      lastViewed: '2024-03-20'
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { 
+    opacity: 1,
+    transition: { 
+      duration: 0.5,
+      when: "beforeChildren",
+      staggerChildren: 0.1
     }
   },
-  // Add more mock resources...
-];
-
-const mockAnalytics: ResourceAnalytics = {
-  views: 1250,
-  likes: 45,
-  comments: 12,
-  downloads: 89,
-  lastViewed: '2024-03-20',
-  dailyViews: Array.from({ length: 7 }, (_, i) => ({
-    date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-    count: Math.floor(Math.random() * 100)
-  })),
-  topDepartments: [
-    { name: 'Computer Science', count: 450 },
-    { name: 'Information Science', count: 450 },
-    { name: 'Electronics & Communication', count: 320 },
-    { name: 'Electrics', count: 320 },
-    { name: 'Mechanical', count: 280 },
-    { name: 'Civil', count: 200 }
-  ],
-  studentFeedback: [
-    { rating: 5, count: 25 },
-    { rating: 4, count: 15 },
-    { rating: 3, count: 8 },
-    { rating: 2, count: 3 },
-    { rating: 1, count: 1 }
-  ]
+  exit: {
+    opacity: 0,
+    transition: { duration: 0.3 }
+  }
 };
 
-// Initialize shared storage for real-time updates between faculty and student views
-if (!window.sharedResources) {
-  window.sharedResources = [...mockResources];
-}
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: { 
+    y: 0, 
+    opacity: 1,
+    transition: { type: 'spring', stiffness: 100 }
+  }
+};
 
-if (!window.subjectFolders) {
-  window.subjectFolders = [];
+if (typeof window !== 'undefined') {
+  if (!window.sharedResources) {
+    window.sharedResources = [];
+  }
+
+  if (!window.subjectFolders) {
+    window.subjectFolders = [];
+  }
 }
 
 export const FacultyDashboard = () => {
-  const [resources, setResources] = useState<FacultyResource[]>(window.sharedResources);
+  const [resources, setResources] = useState<FacultyResource[]>(typeof window !== 'undefined' ? window.sharedResources : []);
   const [selectedResource, setSelectedResource] = useState<FacultyResource | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showUploadWorkflow, setShowUploadWorkflow] = useState(false);
   const [showResourceUpload, setShowResourceUpload] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dbStatus, setDbStatus] = useState<any>(null);
+  const { user } = useAuth();
 
-  // Poll for updates to simulate real-time
   useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (window.sharedResources !== resources) {
-        setResources([...window.sharedResources]);
-      }
-    }, 2000);
-    
-    return () => clearInterval(intervalId);
-  }, [resources]);
-
-  const handleUpload = async (data: UploadFormData) => {
-    // Here you would typically make an API call to upload the resource
-    console.log('Uploading resource:', data);
-    
-    // For file uploads, read the file content to make it accessible
-    let fileContent = '';
-    let fileName = '';
-    
-    if (data.file) {
-      fileName = data.file.name;
-      
-      // Read file data to store it
-      if (data.type !== 'link') {
-        try {
-          fileContent = await readFileAsBase64(data.file);
-        } catch (error) {
-          console.error('Error reading file:', error);
-        }
-      }
-    }
-    
-    // Mock implementation
-    const newResource: FacultyResource = {
-      id: Date.now().toString(),
-      ...data,
-      uploadDate: new Date().toISOString(),
-      fileName: fileName,
-      fileContent: fileContent,
-      stats: {
-        views: 0,
-        likes: 0,
-        comments: 0,
-        downloads: 0,
-        lastViewed: new Date().toISOString()
+    const checkConnection = async () => {
+      try {
+        const status = await checkDatabaseConnection();
+        setDbStatus(status);
+        console.log('MongoDB connection status:', status);
+      } catch (err) {
+        console.error('Failed to check DB connection:', err);
       }
     };
     
-    // Update both local state and shared resources
-    window.sharedResources = [newResource, ...window.sharedResources];
-    setResources([newResource, ...resources]);
-    setShowResourceUpload(false);
-  };
+    checkConnection();
+  }, []);
 
-  // Function to read file as base64 string
-  const readFileAsBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (reader.result) {
-          resolve(reader.result as string);
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchResourcesFromDB = async () => {
+      try {
+        setIsLoading(true);
+        const response = await api.get(API_ROUTES.RESOURCES.LIST);
+        console.log('Fetched resources from DB:', response.data);
+        
+        // Check if resources exist in the response data
+        const resourcesData = response.data.resources || response.data || [];
+        
+        // Only map if we have an array
+        const formattedResources = Array.isArray(resourcesData) 
+          ? resourcesData.map((res: any) => ({
+              id: res._id,
+              title: res.title,
+              description: res.description,
+              type: res.type,
+              subject: res.subject,
+              semester: res.semester,
+              uploadDate: res.createdAt,
+              fileName: res.fileName,
+              fileUrl: res.fileUrl,
+              stats: {
+                views: res.stats?.views || 0,
+                likes: res.stats?.likes || 0,
+                comments: res.stats?.comments || 0,
+                downloads: res.stats?.downloads || 0,
+                lastViewed: res.stats?.lastViewed || new Date().toISOString()
+              }
+            }))
+          : [];
+        
+        setResources(formattedResources);
+        
+        if (typeof window !== 'undefined') {
+          window.sharedResources = formattedResources;
+        }
+      } catch (err) {
+        console.error('Error fetching resources:', err);
+        
+        if (window.sharedResources && window.sharedResources.length > 0) {
+          setResources([...window.sharedResources]);
         } else {
-          reject(new Error('Failed to read file'));
+          // Set empty array if no resources are found
+          setResources([]);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchResourcesFromDB();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchSubjectFolders = async () => {
+      try {
+        const response = await api.get('/api/subject-folders');
+        
+        // Check if response is valid JSON
+        if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+          console.error('Received HTML instead of JSON for subject folders');
+          return;
+        }
+        
+        console.log('Fetched subject folders:', response.data);
+        
+        if (response.data.folders && Array.isArray(response.data.folders)) {
+          if (typeof window !== 'undefined') {
+            window.subjectFolders = response.data.folders;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching subject folders:', err);
+      }
+    };
+    
+    fetchSubjectFolders();
+  }, [user]);
+
+  const handleUpload = async (data: UploadFormData) => {
+    try {
+      setIsLoading(true);
+      console.log('Uploading resource:', data);
+      
+      const formData = new FormData();
+      formData.append('title', data.title);
+      formData.append('description', data.description);
+      formData.append('type', data.type);
+      formData.append('subject', data.subject);
+      formData.append('semester', data.semester.toString());
+      
+      if (data.file) {
+        formData.append('file', data.file);
+      }
+      
+      if (data.link) {
+        formData.append('link', data.link);
+      }
+      
+      const response = await api.post(API_ROUTES.RESOURCES.CREATE, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      console.log('Resource created:', response.data);
+      
+      const newResource: FacultyResource = {
+        id: response.data.resource._id,
+        title: response.data.resource.title,
+        description: response.data.resource.description,
+        type: response.data.resource.type, 
+        subject: response.data.resource.subject,
+        semester: response.data.resource.semester,
+        uploadDate: response.data.resource.createdAt,
+        fileUrl: response.data.resource.fileUrl,
+        fileName: data.file?.name,
+        stats: {
+          views: 0,
+          likes: 0,
+          comments: 0,
+          downloads: 0,
+          lastViewed: new Date().toISOString()
         }
       };
-      reader.onerror = () => {
-        reject(reader.error);
-      };
-      reader.readAsDataURL(file);
-    });
+      
+      setResources(prev => [newResource, ...prev]);
+      if (typeof window !== 'undefined') {
+        window.sharedResources = [newResource, ...window.sharedResources];
+      }
+      
+      toast.success('Resource uploaded successfully!');
+      setShowResourceUpload(false);
+    } catch (error) {
+      console.error('Error uploading resource:', error);
+      toast.error('Failed to upload resource. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleViewAnalytics = (resourceId: string) => {
@@ -154,103 +230,173 @@ export const FacultyDashboard = () => {
     setShowUploadWorkflow(true);
   };
 
-  const handleSelectUploadOption = (option: string, data?: any) => {
+  const handleSelectUploadOption = async (option: string, data?: any) => {
     if (option === 'direct-upload') {
       setShowResourceUpload(true);
       setShowUploadWorkflow(false);
     } else if (option === 'create-subject-folders') {
       console.log('Creating subject folders:', data);
       
-      // Store subject folders for later use
-      if (!window.subjectFolders) {
-        window.subjectFolders = [];
-      }
-      
-      if (data && data.subjects) {
-        const newFolders = data.subjects.map((subject: any) => ({
-          ...subject,
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          createdAt: new Date().toISOString(),
-          resourceCount: 0
-        }));
+      try {
+        const response = await api.post('/api/subject-folders', {
+          subjects: data.subjects
+        });
         
-        window.subjectFolders = [
-          ...window.subjectFolders,
-          ...newFolders
-        ];
+        console.log('Subject folders created:', response.data);
+        toast.success(`Created ${response.data.folders.length} subject folders!`);
+        
+        if (typeof window !== 'undefined') {
+          if (!window.subjectFolders) {
+            window.subjectFolders = [];
+          }
+          
+          if (data && data.subjects) {
+            window.subjectFolders = [
+              ...window.subjectFolders,
+              ...response.data.folders
+            ];
+          }
+        }
+        
+        setShowUploadWorkflow(false);
+        setShowResourceUpload(true);
+      } catch (err: any) {
+        console.error('Error creating subject folders:', err);
+        toast.error(err.message || 'Failed to create subject folders. Please try again.');
       }
-      
-      setShowUploadWorkflow(false);
-      setShowResourceUpload(true);
     } else {
-      // For subject folder creation or other options,
-      // we would handle the data differently
-      console.log(`Selected option: ${option}`, data);
       setShowUploadWorkflow(false);
-      // Here you would typically create folders or set up the structure
-      // For now, we'll just show the regular upload form
       setShowResourceUpload(true);
     }
   };
 
+  if (isLoading && resources.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="space-y-8">
+      {dbStatus && <MongoDBStatusBanner status={dbStatus} />}
+      
+      <AnimatePresence mode="wait">
         {!showUploadWorkflow && !showResourceUpload && !showAnalytics && (
-          <div className="flex justify-end mb-6">
-            <button
-              onClick={handleStartUpload}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          <motion.div
+            key="dashboard"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={containerVariants}
+            className="space-y-8"
+          >
+            <motion.div 
+              variants={itemVariants}
+              className="flex justify-end mb-6"
             >
-              Upload Content
-            </button>
-          </div>
+              <button
+                onClick={handleStartUpload}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+              >
+                Upload Content
+              </button>
+            </motion.div>
+            
+            <ResourceList
+              resources={resources}
+              onViewAnalytics={handleViewAnalytics}
+              showDeleteButton={true}
+            />
+          </motion.div>
         )}
         
         {showUploadWorkflow && (
-          <UploadWorkflow 
-            onSelectOption={handleSelectUploadOption} 
-            onCancel={() => setShowUploadWorkflow(false)} 
-            showAvailableSubjects={true}
-          />
+          <motion.div
+            key="upload-workflow"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={containerVariants}
+          >
+            <UploadWorkflow 
+              onSelectOption={handleSelectUploadOption} 
+              onCancel={() => setShowUploadWorkflow(false)} 
+              showAvailableSubjects={true}
+            />
+          </motion.div>
         )}
         
         {showResourceUpload && (
-          <>
-            <button
+          <motion.div
+            key="resource-upload"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={containerVariants}
+          >
+            <motion.button
+              variants={itemVariants}
               onClick={() => setShowResourceUpload(false)}
-              className="mb-4 text-indigo-600 hover:text-indigo-700 flex items-center space-x-2"
+              className="mb-4 text-indigo-600 hover:text-indigo-700 flex items-center space-x-2 transition-colors duration-200"
             >
               <span>← Back to Resources</span>
-            </button>
+            </motion.button>
             <ResourceUpload 
               onUpload={handleUpload} 
               initialSubject={selectedResource?.subject}
               initialSemester={selectedResource?.semester}
             />
-          </>
+          </motion.div>
         )}
         
-        {showAnalytics && selectedResource ? (
-          <>
-            <button
+        {showAnalytics && selectedResource && (
+          <motion.div
+            key="analytics"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={containerVariants}
+          >
+            <motion.button
+              variants={itemVariants}
               onClick={() => setShowAnalytics(false)}
-              className="mb-4 text-indigo-600 hover:text-indigo-700 flex items-center space-x-2"
+              className="mb-4 text-indigo-600 hover:text-indigo-700 flex items-center space-x-2 transition-colors duration-200"
             >
               <span>← Back to Resources</span>
-            </button>
+            </motion.button>
             <ResourceAnalyticsView
-              analytics={mockAnalytics}
+              analytics={{
+                views: selectedResource.stats.views,
+                likes: selectedResource.stats.likes,
+                comments: selectedResource.stats.comments,
+                downloads: selectedResource.stats.downloads,
+                lastViewed: selectedResource.stats.lastViewed,
+                dailyViews: Array.from({ length: 7 }, (_, i) => ({
+                  date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
+                  count: Math.floor(Math.random() * 50)
+                })),
+                topDepartments: [
+                  { name: 'Computer Science', count: 450 },
+                  { name: 'Information Science', count: 320 },
+                  { name: 'Electronics & Communication', count: 280 },
+                  { name: 'Mechanical', count: 200 },
+                  { name: 'Civil', count: 150 }
+                ],
+                studentFeedback: [
+                  { rating: 5, count: 25 },
+                  { rating: 4, count: 15 },
+                  { rating: 3, count: 8 },
+                  { rating: 2, count: 3 },
+                  { rating: 1, count: 1 }
+                ]
+              }}
               resourceTitle={selectedResource.title}
             />
-          </>
-        ) : !showUploadWorkflow && !showResourceUpload && (
-          <ResourceList
-            resources={resources}
-            onViewAnalytics={handleViewAnalytics}
-          />
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 };

@@ -1,39 +1,48 @@
+
+import { UserRole } from './auth';
+
 export interface User {
-  id: string;
-  name: string;
-  semester: number;
+  _id?: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
   department: string;
-  streak: number;
-  lastActive: string;
-  avatar?: string;
-}
-
-export interface SearchFilters {
-  query: string;
-  type?: string[];
+  phoneNumber: string;
   semester?: number;
-  subject?: string;
-  category?: string[];
-}
-
-export interface Activity {
-  id: string;
-  type: 'view' | 'download' | 'complete' | 'streak';
-  description: string;
-  timestamp: string;
-  points: number;
+  secretNumber?: string;
+  isEmailVerified: boolean;
+  streak?: number;
+  avatar?: string;
+  googleId?: string;
 }
 
 export interface Resource {
   id: string;
   title: string;
   description: string;
-  type: 'pdf' | 'video' | 'link' | 'document';
-  semester: number;
+  type: 'document' | 'video' | 'link' | 'note';
   subject: string;
+  semester: number;
+  department: string;
   uploadedBy: string;
   views: number;
   downloads: number;
-  category: string;
+  category?: string;
+  timestamp: string;
+  fileUrl?: string;
+}
+
+export interface Activity {
+  _id: string;
+  userId: string;
+  type: 'upload' | 'download' | 'view' | 'like' | 'comment' | 'share';
+  resourceId?: string;
+  resource?: {
+    title: string;
+    type: string;
+  };
+  message: string;
   timestamp: string;
 }
+
+export type { UserRole } from './auth';

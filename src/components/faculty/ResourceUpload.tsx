@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
-import { Upload, File, FileText, Folder } from 'lucide-react';
+import { Upload, FileText } from 'lucide-react';
 import { UploadFormData, SubjectFolder } from '../../types/faculty';
+import { toast } from 'react-hot-toast';
 
 interface ResourceUploadProps {
   onUpload: (data: UploadFormData) => Promise<void>;
@@ -106,10 +107,13 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
       setFileName(null);
       
       // Show success message
-      alert('Resource uploaded successfully!');
+      toast.success('Resource uploaded successfully!');
       
     } catch (err: any) {
-      setError(err.message || 'Failed to upload resource');
+      const errorMessage = err.message || 'Failed to upload resource';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      console.error('Upload error:', err);
     } finally {
       setIsUploading(false);
     }

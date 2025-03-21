@@ -1,3 +1,4 @@
+
 import { Request, Response } from 'express';
 import { User } from '../../lib/db/models/User';
 import { generateToken } from '../../lib/auth/jwt';
@@ -31,7 +32,7 @@ export default async function handler(req: Request, res: Response) {
     }
 
     // Generate JWT token
-    const token = generateToken(user._id);
+    const token = generateToken(user._id.toString());
 
     // Return user data and token
     res.json({

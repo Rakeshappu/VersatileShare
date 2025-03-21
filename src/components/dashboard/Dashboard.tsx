@@ -7,16 +7,26 @@ import { AnalyticsCard } from '../analytics/AnalyticsCard';
 import { SemesterResources } from '../resources/SemesterResources';
 import { QuickAccess } from '../resources/QuickAccess';
 import { ActivityFeed } from '../activities/ActivityFeed';
-import { currentUser, recentActivities } from '../../data/mockData';
+import { useAuth } from '../../contexts/AuthContext';
 import { getResources, checkDatabaseConnection } from '../../services/resource.service';
-import { Resource } from '../../types';
+import { activityService } from '../../services/activity.service';
+import { Resource, Activity } from '../../types';
 
 export const Dashboard = () => {
+  const { user: currentUser } = useAuth();
   const [webSearchResults, setWebSearchResults] = useState<any>(null);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<any>(null);
+  const [stats, setStats] = useState({
+    totalResources: 0,
+    totalViews: 0,
+    activeUsers: 0,
+    downloads: 0
+  });
 
   // Check MongoDB connection on mount
   useEffect(() => {
@@ -38,10 +48,24 @@ export const Dashboard = () => {
     const fetchResources = async () => {
       try {
         setLoading(true);
-        console.log('Fetching resources for semester:', currentUser.semester);
-        const fetchedResources = await getResources({ semester: currentUser.semester });
-        console.log('Fetched resources:', fetchedResources);
-        setResources(fetchedResources || []);
+        if (currentUser?.semester) {
+          console.log('Fetching resources for semester:', currentUser.semester);
+          const fetchedResources = await getResources({ semester: currentUser.semester });
+          console.log('Fetched resources:', fetchedResources);
+          setResources(fetchedResources || []);
+          
+          // Calculate stats
+          const totalResources = fetchedResources.length;
+          const totalViews = fetchedResources.reduce((total, resource) => total + (resource.views || 0), 0);
+          const downloads = fetchedResources.reduce((total, resource) => total + (resource.downloads || 0), 0);
+          
+          setStats({
+            totalResources,
+            totalViews,
+            activeUsers: Math.floor(Math.random() * 1000), // Placeholder - replace with actual data
+            downloads
+          });
+        }
         setError(null);
       } catch (err) {
         console.error('Failed to fetch resources:', err);
@@ -53,7 +77,27 @@ export const Dashboard = () => {
       }
     };
     
-    fetchResources();
+    if (currentUser) {
+      fetchResources();
+    }
+  }, [currentUser]);
+
+  // Fetch activities
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        setActivitiesLoading(true);
+        const fetchedActivities = await activityService.getRecentActivities(10);
+        setActivities(fetchedActivities || []);
+      } catch (error) {
+        console.error('Failed to fetch activities:', error);
+        setActivities([]);
+      } finally {
+        setActivitiesLoading(false);
+      }
+    };
+
+    fetchActivities();
   }, []);
   
   // Listen for global search events
@@ -74,7 +118,7 @@ export const Dashboard = () => {
       <SearchBar />
       
       <div className="mt-8">
-        <UserBanner user={currentUser} />
+        <UserBanner />
       </div>
 
       {dbStatus && !dbStatus.connected && (
@@ -104,6 +148,16 @@ export const Dashboard = () => {
                 <h3 className="text-lg font-medium text-indigo-600 dark:text-indigo-400">{result.title}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{result.source}</p>
                 <p className="mt-2 text-gray-700 dark:text-gray-300">{result.snippet}</p>
+                {result.url && (
+                  <a 
+                    href={result.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block mt-2 text-sm text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400"
+                  >
+                    Visit Resource →
+                  </a>
+                )}
               </div>
             ))}
           </div>
@@ -115,26 +169,26 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <AnalyticsCard
           title="Total Resources"
-          value={resources.length.toString()}
-          change="12%"
+          value={stats.totalResources.toString()}
+          change={loading ? "loading..." : "12%"}
           icon={<BookOpen className="h-6 w-6 text-indigo-600" />}
         />
         <AnalyticsCard
           title="Total Views"
-          value={(resources.reduce((total, resource) => total + (resource.views || 0), 0)).toString()}
-          change="8%"
+          value={stats.totalViews.toString()}
+          change={loading ? "loading..." : "8%"}
           icon={<BarChart2 className="h-6 w-6 text-indigo-600" />}
         />
         <AnalyticsCard
           title="Active Users"
-          value="789"
-          change="15%"
+          value={stats.activeUsers.toString()}
+          change={loading ? "loading..." : "15%"}
           icon={<Users className="h-6 w-6 text-indigo-600" />}
         />
         <AnalyticsCard
           title="Downloads"
-          value={(resources.reduce((total, resource) => total + (resource.downloads || 0), 0)).toString()}
-          change="5%"
+          value={stats.downloads.toString()}
+          change={loading ? "loading..." : "5%"}
           icon={<Download className="h-6 w-6 text-indigo-600" />}
         />
       </div>
@@ -150,11 +204,14 @@ export const Dashboard = () => {
               <p>{error}</p>
             </div>
           ) : (
-            <SemesterResources semester={currentUser.semester} resources={resources} />
+            <SemesterResources 
+              semester={currentUser?.semester || 1} 
+              resources={resources} 
+            />
           )}
         </div>
         <div>
-          <ActivityFeed activities={recentActivities} />
+          <ActivityFeed activities={activities} />
         </div>
       </div>
     </div>

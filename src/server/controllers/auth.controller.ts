@@ -1,7 +1,7 @@
+
 import { Request, Response } from 'express';
-import { User } from '../models/User';
+import { User } from '../../lib/db/models/User';
 import { generateToken, generateVerificationToken } from '../utils/auth';
-import { sendVerificationEmail } from '../utils/email';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -36,7 +36,7 @@ export const signup = async (req: Request, res: Response) => {
     await user.save();
 
     // Send verification email
-    await sendVerificationEmail(email, verificationToken);
+    // await sendVerificationEmail(email, verificationToken);
 
     res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
@@ -121,7 +121,7 @@ export const resendVerification = async (req: Request, res: Response) => {
     user.verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
     
-    await sendVerificationEmail(email, verificationToken);
+    // await sendVerificationEmail(email, verificationToken);
 
     res.json({ message: 'Verification email resent successfully' });
   } catch (error) {

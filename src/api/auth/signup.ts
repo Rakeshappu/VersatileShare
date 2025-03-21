@@ -1,6 +1,7 @@
+
 import { Request, Response } from 'express';
 import { User } from '../../lib/db/models/User';
-import { generateVerificationToken } from '../../lib/auth/jwt';
+import { generateVerificationToken, generateOTP } from '../../lib/auth/jwt';
 import { sendVerificationEmail } from '../../lib/email/sendEmail';
 import connectDB from '../../lib/db/connect';
 
@@ -28,8 +29,9 @@ export default async function handler(req: Request, res: Response) {
       }
     }
 
-    // Generate verification token
+    // Generate verification token and OTP
     const verificationToken = generateVerificationToken();
+    const otp = generateOTP();
 
     // Create new user
     const user = new User({
@@ -42,12 +44,14 @@ export default async function handler(req: Request, res: Response) {
       secretNumber: role === 'faculty' ? secretNumber : undefined,
       verificationToken,
       verificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      otp: otp,
+      otpExpiry: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
     });
 
     await user.save();
 
-    // Send verification email
-    await sendVerificationEmail(email, verificationToken);
+    // Send verification email with OTP
+    await sendVerificationEmail(email, verificationToken, otp);
 
     res.status(201).json({ message: 'User created successfully' });
   } catch (error) {

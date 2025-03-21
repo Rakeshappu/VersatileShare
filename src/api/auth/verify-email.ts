@@ -1,6 +1,6 @@
+
 import { Request, Response } from 'express';
 import { User } from '../../lib/db/models/User';
-import { verifyToken } from '../../lib/auth/jwt';
 import connectDB from '../../lib/db/connect';
 
 export default async function handler(req: Request, res: Response) {
@@ -11,22 +11,43 @@ export default async function handler(req: Request, res: Response) {
   try {
     await connectDB();
 
-    const { token } = req.body;
-
-    // Find user with verification token
-    const user = await User.findOne({
-      verificationToken: token,
-      verificationTokenExpiry: { $gt: new Date() },
-    });
-
-    if (!user) {
-      return res.status(400).json({ error: 'Invalid or expired verification token' });
+    const { token, otp } = req.body;
+    
+    let user;
+    
+    // If OTP is provided, verify with OTP
+    if (otp) {
+      user = await User.findOne({
+        otp,
+        otpExpiry: { $gt: new Date() }
+      });
+      
+      if (!user) {
+        return res.status(400).json({ error: 'Invalid or expired OTP' });
+      }
+    } 
+    // If token is provided, verify with token
+    else if (token) {
+      user = await User.findOne({
+        verificationToken: token,
+        verificationTokenExpiry: { $gt: new Date() },
+      });
+      
+      if (!user) {
+        return res.status(400).json({ error: 'Invalid or expired verification token' });
+      }
+    } 
+    // If neither is provided
+    else {
+      return res.status(400).json({ error: 'Verification token or OTP is required' });
     }
 
     // Update user
     user.isEmailVerified = true;
     user.verificationToken = undefined;
     user.verificationTokenExpiry = undefined;
+    user.otp = undefined;
+    user.otpExpiry = undefined;
     await user.save();
 
     res.json({ message: 'Email verified successfully' });

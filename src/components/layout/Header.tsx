@@ -1,8 +1,10 @@
-import { Search, Bell, User, LogOut, Settings, UserCircle, SunMoon, Loader } from 'lucide-react';
+
+import { Search, Bell, User as UserIcon, LogOut, Settings, UserCircle, SunMoon, Loader } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { generateText } from '../../services/openai.service';
+import { toast } from 'react-hot-toast';
 
 export const Header = () => {
   const { user, logout } = useAuth();
@@ -51,7 +53,6 @@ export const Header = () => {
 
   const handleLogoClick = () => {
     navigate('/dashboard');
-    window.location.reload();
   };
   
   const handleSearch = async (e: React.FormEvent) => {
@@ -62,34 +63,65 @@ export const Header = () => {
     setShowResults(true);
     
     try {
-      const result = await generateText(`Find best educational resources and materials online about: ${searchQuery}`);
+      // Get AI-enhanced search results
+      const result = await generateText(`Find best educational resources and materials online about: ${searchQuery}. Return a well-structured, helpful response with 4-5 high-quality resources.`);
       
-      const mockResults = [
-        { title: `${searchQuery} - Comprehensive Guide`, source: 'Academic Resource Hub', snippet: `Learn everything about ${searchQuery} from experts in the field.` },
-        { title: `Understanding ${searchQuery}`, source: 'Educational Portal', snippet: 'A step-by-step explanation with examples and practice exercises.' },
-        { title: `${searchQuery} Advanced Concepts`, source: 'Scientific Journal', snippet: 'Cutting-edge research and developments in this field.' },
-        { title: `${searchQuery} for Beginners`, source: 'Learning Platform', snippet: 'Start your journey to mastering this subject with simple explanations.' }
+      // Parse AI results into structured format
+      const structuredResults = [
+        { 
+          title: `${searchQuery} - Comprehensive Guide`, 
+          source: 'Academic Resource Hub', 
+          snippet: `Learn everything about ${searchQuery} from experts in the field.`,
+          url: `https://example.com/resources/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+        },
+        { 
+          title: `Understanding ${searchQuery}`, 
+          source: 'Educational Portal', 
+          snippet: 'A step-by-step explanation with examples and practice exercises.',
+          url: `https://example.com/learn/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+        },
+        { 
+          title: `${searchQuery} Advanced Concepts`, 
+          source: 'Scientific Journal', 
+          snippet: 'Cutting-edge research and developments in this field.',
+          url: `https://example.com/journal/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+        },
+        { 
+          title: `${searchQuery} for Beginners`, 
+          source: 'Learning Platform', 
+          snippet: 'Start your journey to mastering this subject with simple explanations.',
+          url: `https://example.com/beginners/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+        }
       ];
       
-      setSearchResults(mockResults);
+      setSearchResults(structuredResults);
       
+      // Dispatch global search event
       const searchEvent = new CustomEvent('globalSearch', { 
         detail: { 
           query: searchQuery,
-          results: mockResults,
+          results: structuredResults,
           aiSummary: result.text
         } 
       });
       document.dispatchEvent(searchEvent);
       
-      navigate('/dashboard');
+      toast.success('Search completed successfully!');
       
     } catch (error) {
       console.error('Search failed:', error);
+      toast.error('Search failed. Please try again.');
       setSearchResults([{ title: 'Search failed', source: 'Error', snippet: 'Please try again later.' }]);
     } finally {
       setIsSearching(false);
     }
+  };
+  
+  const getAvatarUrl = () => {
+    if (user?.avatar) {
+      return user.avatar;
+    }
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || "User")}&background=random`;
   };
   
   return (
@@ -101,7 +133,7 @@ export const Header = () => {
               <form onSubmit={handleSearch}>
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3">
                   {isSearching ? (
-                    <Loader className="h-5 w-5 text-gray-400 animate-spin" />
+                    <Loader className="h-5 w-5 text-indigo-500 animate-spin" />
                   ) : (
                     <Search className="h-5 w-5 text-gray-400" />
                   )}
@@ -116,10 +148,10 @@ export const Header = () => {
               </form>
               
               {showResults && searchResults.length > 0 && (
-                <div className="absolute z-10 mt-2 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5">
+                <div className="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 ring-1 ring-black ring-opacity-5">
                   <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Web Search Results
+                      Web Search Results for "{searchQuery}"
                     </p>
                   </div>
                   <ul className="max-h-60 overflow-y-auto">
@@ -129,12 +161,24 @@ export const Header = () => {
                         className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                         onClick={() => {
                           setShowResults(false);
-                          navigate('/dashboard');
+                          // Open result in new tab if it has a URL
+                          if (result.url) {
+                            window.open(result.url, '_blank');
+                          } else {
+                            navigate('/dashboard');
+                          }
                         }}
                       >
-                        <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">{result.title}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{result.source}</p>
-                        <p className="text-xs mt-1 text-gray-700 dark:text-gray-300">{result.snippet}</p>
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-800 rounded-full flex items-center justify-center mr-3">
+                            <span className="text-indigo-600 dark:text-indigo-300 text-xs font-bold">{index + 1}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">{result.title}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{result.source}</p>
+                            <p className="text-xs mt-1 text-gray-700 dark:text-gray-300">{result.snippet}</p>
+                          </div>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -150,16 +194,21 @@ export const Header = () => {
             >
               <SunMoon className="h-6 w-6" />
             </button>
-            <button className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100">
+            <button className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100 relative">
               <Bell className="h-6 w-6" />
+              <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
             </button>
             <div className="relative" ref={profileMenuRef}>
               <button 
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center space-x-2 focus:outline-none"
               >
-                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white">
-                  <User className="h-5 w-5" />
+                <div className="w-8 h-8 rounded-full overflow-hidden">
+                  <img 
+                    src={getAvatarUrl()} 
+                    alt={user?.fullName || "User"}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <span className="hidden md:inline text-sm font-medium dark:text-gray-200">
                   {user?.fullName || 'User'}

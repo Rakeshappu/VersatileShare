@@ -1,6 +1,8 @@
-import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
+import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'versatile_share_secret_key_2024';
 
 export function generateToken(userId: string): string {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
@@ -15,8 +17,9 @@ export function verifyToken(token: string): { userId: string } {
 }
 
 export function generateVerificationToken(): string {
-  return jwt.sign({}, JWT_SECRET, { expiresIn: '1h' });
+  return randomBytes(32).toString('hex');
 }
+
 export function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }

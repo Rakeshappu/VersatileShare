@@ -1,7 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { SubjectData, SubjectFolder } from '../../../types/faculty';
+import { toast } from 'react-hot-toast';
 
 interface SubjectCreationFormProps {
   selectedSemester: number | null;
@@ -26,9 +27,26 @@ export const SubjectCreationForm = ({
     lecturerName: '',
     semester: selectedSemester || 1
   });
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Reset form error when inputs change
+  useEffect(() => {
+    if (formError) {
+      setFormError(null);
+    }
+  }, [currentSubject.subjectName, currentSubject.lecturerName]);
 
   const handleAddSubject = () => {
-    if (currentSubject.subjectName.trim() === '') return;
+    // Validate inputs
+    if (currentSubject.subjectName.trim() === '') {
+      setFormError('Subject name is required');
+      return;
+    }
+    
+    if (currentSubject.lecturerName.trim() === '') {
+      setFormError('Lecturer name is required');
+      return;
+    }
     
     setSubjects([...subjects, { ...currentSubject }]);
     setCurrentSubject({
@@ -36,6 +54,26 @@ export const SubjectCreationForm = ({
       subjectName: '',
       lecturerName: ''
     });
+    setFormError(null);
+  };
+
+  const handleSubmit = () => {
+    if (subjects.length === 0) {
+      setFormError('Add at least one subject before proceeding');
+      return;
+    }
+    
+    // Double check all subjects have required fields
+    const invalidSubjects = subjects.filter(
+      subject => !subject.subjectName || !subject.lecturerName || !subject.semester
+    );
+    
+    if (invalidSubjects.length > 0) {
+      setFormError('Some subjects have missing information');
+      return;
+    }
+    
+    onCreateSubjectFolders(subjects);
   };
 
   return (
@@ -56,27 +94,35 @@ export const SubjectCreationForm = ({
       <div className="bg-gray-50 p-4 rounded-lg">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={currentSubject.subjectName}
               onChange={(e) => setCurrentSubject({...currentSubject, subjectName: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               placeholder="e.g. Data Structures"
+              required
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Lecturer Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lecturer Name <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={currentSubject.lecturerName}
               onChange={(e) => setCurrentSubject({...currentSubject, lecturerName: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               placeholder="e.g. John Doe"
+              required
             />
           </div>
         </div>
+        
+        {formError && (
+          <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded border border-red-200">
+            {formError}
+          </div>
+        )}
         
         <button
           onClick={handleAddSubject}
@@ -152,7 +198,7 @@ export const SubjectCreationForm = ({
           </button>
           
           <button
-            onClick={() => onCreateSubjectFolders(subjects)}
+            onClick={handleSubmit}
             disabled={subjects.length === 0}
             className={`px-4 py-2 rounded-md text-white ${
               subjects.length === 0 

@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Header } from './components/layout/Header';
@@ -10,11 +9,26 @@ import { Dashboard } from './components/dashboard/Dashboard';
 import { ProfilePage } from './pages/profile/ProfilePage';
 import { StudyMaterialsPage } from './pages/study/StudyMaterialsPage';
 import PrivateRoute from './components/auth/PrivateRoute';
-import { StarredPage } from './pages/storage/StarredPage';
+import { StarredPage as StudentStarredPage } from './pages/storage/StarredPage';
 import { DownloadsPage } from './pages/storage/DownloadsPage';
-import { TrashPage } from './pages/storage/TrashPage';
-import { SettingsPage } from './pages/settings/SettingsPage';
+import { TrashPage as StudentTrashPage } from './pages/storage/TrashPage';
+import { SettingsPage as StudentSettingsPage } from './pages/settings/SettingsPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
+
+// Import faculty pages
+import { AnalyticsPage } from './pages/faculty/AnalyticsPage';
+import { StudentsPage } from './pages/faculty/StudentsPage';
+import { StarredPage as FacultyStarredPage } from './pages/faculty/StarredPage';
+import { TrashPage as FacultyTrashPage } from './pages/faculty/TrashPage';
+import { SettingsPage as FacultySettingsPage } from './pages/faculty/SettingsPage';
+
+// Create placeholder component for Faculty upload
+const FacultyUpload = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold mb-4">Upload Resources</h1>
+    <p className="text-gray-600">This is the faculty upload page.</p>
+  </div>
+);
 
 function App() {
   const skipAuth = true;
@@ -75,7 +89,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <StarredPage />
+                      <StudentStarredPage />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -103,7 +117,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <TrashPage />
+                      <StudentTrashPage />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -117,7 +131,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <SettingsPage />
+                      <StudentSettingsPage />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -140,6 +154,48 @@ function App() {
               }
             />
             <Route
+              path="/faculty/upload"
+              element={
+                <PrivateRoute role="faculty">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <FacultyUpload />
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/faculty/analytics"
+              element={
+                <PrivateRoute role="faculty">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <AnalyticsPage />
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/faculty/students"
+              element={
+                <PrivateRoute role="faculty">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <StudentsPage />
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            <Route
               path="/faculty/starred"
               element={
                 <PrivateRoute role="faculty">
@@ -147,7 +203,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <StarredPage />
+                      <FacultyStarredPage />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -161,7 +217,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <TrashPage />
+                      <FacultyTrashPage />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -175,7 +231,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <SettingsPage />
+                      <FacultySettingsPage />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -205,7 +261,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <StarredPage />
+                      <StudentStarredPage />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -233,7 +289,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <TrashPage />
+                      <StudentTrashPage />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -247,7 +303,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <SettingsPage />
+                      <StudentSettingsPage />
                     </div>
                   </div>
                 </PrivateRoute>

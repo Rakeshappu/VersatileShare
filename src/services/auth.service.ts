@@ -1,11 +1,7 @@
 
 import api from './api';
 import { API_ROUTES } from '../lib/api/routes';
-import { SignupFormData, LoginFormData, AuthResponse, User } from '../types/auth';
-import { dummyLogin } from '../utils/dummyAuth';
-
-// Set this to false to use real MongoDB auth instead of dummy auth
-const USE_DUMMY_AUTH = false;
+import { SignupFormData, LoginFormData, User } from '../types/auth';
 
 const handleApiError = (error: any, defaultMessage: string) => {
   console.error('API Error Details:', {
@@ -29,15 +25,6 @@ export const authService = {
         throw new Error('No auth token found');
       }
       
-      if (USE_DUMMY_AUTH) {
-        // Dummy implementation - just return user from token
-        const storedUser = localStorage.getItem('user');
-        if (!storedUser) {
-          throw new Error('No user found');
-        }
-        return { user: JSON.parse(storedUser) };
-      }
-      
       const response = await api.get(API_ROUTES.AUTH.ME);
       return response.data;
     } catch (error: any) {
@@ -49,15 +36,7 @@ export const authService = {
   
   async login(data: LoginFormData) {
     try {
-      if (USE_DUMMY_AUTH) {
-        console.log('Using dummy auth for login');
-        const response = await dummyLogin(data.email, data.password);
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        return response;
-      }
-      
-      console.log('Attempting real login with:', data);
+      console.log('Attempting login with:', data);
       const response = await api.post(API_ROUTES.AUTH.LOGIN, data);
       console.log('Login response:', response.data);
       
@@ -96,13 +75,38 @@ export const authService = {
       const token = localStorage.getItem('token');
       if (!token) return null;
       
-      if (USE_DUMMY_AUTH) {
-        const storedUser = localStorage.getItem('user');
-        return storedUser ? JSON.parse(storedUser) : null;
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        // Use stored user data for quick rendering
+        const user = JSON.parse(storedUser);
+        
+        // Verify with server in background
+        api.get(API_ROUTES.AUTH.ME)
+          .then(response => {
+            // Update stored user if different
+            const freshUser = response.data.user;
+            if (JSON.stringify(freshUser) !== storedUser) {
+              localStorage.setItem('user', JSON.stringify(freshUser));
+            }
+          })
+          .catch(err => {
+            console.error('User verification failed:', err);
+            // If verification fails, clear storage
+            if (err.status === 401) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              window.location.href = '/auth/login';
+            }
+          });
+        
+        return user;
       }
       
+      // No stored user, fetch from server
       const response = await api.get(API_ROUTES.AUTH.ME);
-      return response.data.user;
+      const user = response.data.user;
+      localStorage.setItem('user', JSON.stringify(user));
+      return user;
     } catch (error) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -147,6 +151,30 @@ export const authService = {
       return response.data;
     } catch (error: any) {
       handleApiError(error, 'Failed to resend verification email');
+    }
+  },
+  
+  async googleLogin(token: string) {
+    try {
+      const response = await api.post(API_ROUTES.AUTH.GOOGLE, { token });
+      
+      // If the user needs to provide additional info
+      if (response.status === 202) {
+        return {
+          needsAdditionalInfo: true,
+          ...response.data
+        };
+      }
+      
+      // Normal login success
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      handleApiError(error, 'Google authentication failed');
     }
   }
 };

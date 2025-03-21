@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 
 const resourceSchema = new mongoose.Schema({
@@ -27,16 +28,18 @@ const resourceSchema = new mongoose.Schema({
   uploadedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Making it optional for all environments
   },
   fileUrl: String,
   fileSize: Number,
+  fileName: String,
   link: String,
   stats: {
     views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },
     comments: { type: Number, default: 0 },
     downloads: { type: Number, default: 0 },
+    lastViewed: { type: Date, default: Date.now },
   },
   createdAt: {
     type: Date,
@@ -44,4 +47,5 @@ const resourceSchema = new mongoose.Schema({
   },
 });
 
+// Ensure we have a model or create one
 export const Resource = mongoose.models.Resource || mongoose.model('Resource', resourceSchema);
