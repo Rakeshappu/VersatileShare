@@ -62,7 +62,7 @@ export default async function handler(req: Request, res: Response) {
     res.status(200).json(results);
   } catch (error) {
     console.error('Search error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -111,19 +111,19 @@ async function fallbackSearch(req: Request, res: Response) {
       .sort(sortOption)
       .skip(skip)
       .limit(limitNum)
-      .populate('uploadedBy', 'fullName');
+      .lean(); // Use lean to get plain JS objects
     
     const total = await Resource.countDocuments(query);
     
     // Format results to match Elasticsearch response format
     const results = resources.map(resource => ({
-      id: resource._id.toString(),
+      id: resource._id ? resource._id.toString() : '',
       title: resource.title,
       description: resource.description,
       type: resource.type,
       subject: resource.subject,
       semester: resource.semester,
-      uploadedBy: resource.uploadedBy._id.toString(),
+      uploadedBy: resource.uploadedBy ? resource.uploadedBy.toString() : '',
       department: resource.department || 'ISE',
       createdAt: resource.createdAt,
       updatedAt: resource.updatedAt,
@@ -139,6 +139,9 @@ async function fallbackSearch(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Fallback search error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
   }
 }

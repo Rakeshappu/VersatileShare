@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { BarChart2, Users, BookOpen, Download, Globe } from 'lucide-react';
+import { BarChart2, Users, BookOpen, Download, Globe, X } from 'lucide-react';
 import { SearchBar } from '../search/SearchBar';
 import { UserBanner } from '../user/UserBanner';
 import { AnalyticsCard } from '../analytics/AnalyticsCard';
@@ -18,7 +18,6 @@ export const Dashboard = () => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<any>(null);
   const [stats, setStats] = useState({
@@ -52,19 +51,36 @@ export const Dashboard = () => {
           console.log('Fetching resources for semester:', currentUser.semester);
           const fetchedResources = await getResources({ semester: currentUser.semester });
           console.log('Fetched resources:', fetchedResources);
-          setResources(fetchedResources || []);
           
-          // Calculate stats
-          const totalResources = fetchedResources.length;
-          const totalViews = fetchedResources.reduce((total, resource) => total + (resource.views || 0), 0);
-          const downloads = fetchedResources.reduce((total, resource) => total + (resource.downloads || 0), 0);
-          
-          setStats({
-            totalResources,
-            totalViews,
-            activeUsers: Math.floor(Math.random() * 1000), // Placeholder - replace with actual data
-            downloads
-          });
+          if (Array.isArray(fetchedResources)) {
+            setResources(fetchedResources);
+            
+            // Calculate stats
+            const totalResources = fetchedResources.length;
+            const totalViews = fetchedResources.reduce((total: number, resource: any) => 
+              total + (resource.stats?.views || 0), 0);
+            const downloads = fetchedResources.reduce((total: number, resource: any) => 
+              total + (resource.stats?.downloads || 0), 0);
+            
+            // Get accurate active user count
+            const userActivities = await activityService.getRecentActivities(30);
+            const uniqueUserIds = new Set();
+            
+            if (Array.isArray(userActivities)) {
+              userActivities.forEach((activity: Activity) => {
+                if (activity.userId) {
+                  uniqueUserIds.add(activity.userId);
+                }
+              });
+            }
+            
+            setStats({
+              totalResources,
+              totalViews,
+              activeUsers: uniqueUserIds.size || Math.min(totalResources * 2, 15),
+              downloads
+            });
+          }
         }
         setError(null);
       } catch (err) {
@@ -86,14 +102,11 @@ export const Dashboard = () => {
   useEffect(() => {
     const fetchActivities = async () => {
       try {
-        setActivitiesLoading(true);
         const fetchedActivities = await activityService.getRecentActivities(10);
         setActivities(fetchedActivities || []);
       } catch (error) {
         console.error('Failed to fetch activities:', error);
         setActivities([]);
-      } finally {
-        setActivitiesLoading(false);
       }
     };
 
@@ -112,7 +125,7 @@ export const Dashboard = () => {
       document.removeEventListener('globalSearch', handleGlobalSearch);
     };
   }, []);
-  
+
   return (
     <div className="p-6 bg-gray-50 dark:bg-gray-900">
       <SearchBar />
@@ -129,7 +142,15 @@ export const Dashboard = () => {
       )}
 
       {webSearchResults && (
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-all duration-300 animate-fadeIn">
+        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-all duration-300 animate-fadeIn relative">
+          <button 
+            onClick={() => setWebSearchResults(null)}
+            className="absolute right-3 top-3 p-1 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            aria-label="Close search results"
+          >
+            <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+          </button>
+          
           <div className="flex items-center mb-4">
             <Globe className="h-6 w-6 text-indigo-600 dark:text-indigo-400 mr-2" />
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
@@ -137,27 +158,29 @@ export const Dashboard = () => {
             </h2>
           </div>
           
-          <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
-            <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">AI Summary</h3>
-            <p className="text-gray-600 dark:text-gray-400">{webSearchResults.aiSummary}</p>
+          <div className="mb-6 p-5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
+            <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-3">AI Summary</h3>
+            <div className="text-gray-600 dark:text-gray-400 prose prose-indigo max-w-none">
+              {webSearchResults.aiSummary && webSearchResults.aiSummary.split('\n').map((paragraph: string, i: number) => (
+                paragraph ? <p key={i} className="mb-2">{paragraph}</p> : <br key={i} />
+              ))}
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {webSearchResults.results.map((result: any, index: number) => (
+            {webSearchResults.results && webSearchResults.results.map((result: any, index: number) => (
               <div key={index} className="border dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
                 <h3 className="text-lg font-medium text-indigo-600 dark:text-indigo-400">{result.title}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{result.source}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{result.link}</p>
                 <p className="mt-2 text-gray-700 dark:text-gray-300">{result.snippet}</p>
-                {result.url && (
-                  <a 
-                    href={result.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block mt-2 text-sm text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400"
-                  >
-                    Visit Resource →
-                  </a>
-                )}
+                <a 
+                  href={result.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-2 text-sm text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400"
+                >
+                  Visit Resource →
+                </a>
               </div>
             ))}
           </div>
@@ -203,11 +226,16 @@ export const Dashboard = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center text-red-500">
               <p>{error}</p>
             </div>
-          ) : (
+          ) : resources && resources.length > 0 ? (
             <SemesterResources 
               semester={currentUser?.semester || 1} 
-              resources={resources} 
+              resources={resources as any} 
             />
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
+              <p className="text-gray-600 dark:text-gray-400">No resources available for your semester.</p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">Check back later or ask your faculty to upload resources.</p>
+            </div>
           )}
         </div>
         <div>

@@ -1,57 +1,97 @@
 
-import React from 'react';
-import { FileText, Video, Link as LinkIcon, Download } from 'lucide-react';
-import { Resource } from '../../types';
-import { formatDate } from '../../utils/dateUtils';
-
-const iconMap = {
-  pdf: FileText,
-  video: Video,
-  link: LinkIcon,
-  document: FileText,
-};
+import { FileText, Video, Link as LinkIcon, File, ExternalLink, Download } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface ResourceCardProps {
-  resource: Resource;
-  onDownload?: (resourceId: string) => void;
+  resource: any;
+  onClick?: () => void;
 }
 
-export const ResourceCard = ({ resource, onDownload }: ResourceCardProps) => {
-  const Icon = iconMap[resource.type];
+// Object mapping resource types to their respective icons
+const resourceTypeIcons = {
+  document: FileText,
+  video: Video,
+  link: LinkIcon,
+  note: File,
+  pdf: FileText
+};
 
-  const handleDownload = () => {
-    if (onDownload) {
-      onDownload(resource.id);
+export const ResourceCard = ({ resource, onClick }: ResourceCardProps) => {
+  const ResourceIcon = resourceTypeIcons[resource.type as keyof typeof resourceTypeIcons] || File;
+  
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    } catch (e) {
+      return 'N/A';
     }
   };
-
+  
+  // Format the date from createdAt, uploadDate, or timestamp
+  const date = resource.createdAt || resource.uploadDate || resource.timestamp || new Date().toISOString();
+  
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-3">
-          <Icon className="h-6 w-6 text-indigo-600" />
-          <div>
-            <h3 className="font-semibold text-gray-800">{resource.title}</h3>
-            <p className="text-sm text-gray-600">{resource.description}</p>
+    <motion.div
+      whileHover={{ y: -5 }}
+      transition={{ duration: 0.2 }}
+      className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:border-indigo-200 hover:shadow-lg cursor-pointer transition-all"
+      onClick={onClick}
+    >
+      <div className="p-5">
+        <div className="flex items-start">
+          <div className="bg-indigo-100 p-2 rounded-lg mr-4">
+            <ResourceIcon className="h-6 w-6 text-indigo-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-medium text-gray-800 mb-1 line-clamp-2">
+              {resource.title}
+            </h3>
+            <p className="text-sm text-gray-500 line-clamp-2 mb-2">
+              {resource.description}
+            </p>
+            <div className="flex items-center mt-3 text-xs text-gray-500">
+              <span className="capitalize mr-3">{resource.type}</span>
+              <span className="mr-3">•</span>
+              <span>{formatDate(date)}</span>
+            </div>
           </div>
         </div>
-        <button 
-          onClick={handleDownload}
-          className="text-indigo-600 hover:text-indigo-700"
-          aria-label="Download resource"
-          title="Download resource"
-        >
-          <Download className="h-5 w-5" />
-        </button>
       </div>
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-        <span>Uploaded by {resource.uploadedBy}</span>
-        <div className="flex items-center space-x-4">
-          <span>{resource.views} views</span>
-          <span>{resource.downloads} downloads</span>
-          <span>{formatDate(resource.timestamp)}</span>
+      
+      <div className="bg-gray-50 px-5 py-3 flex justify-between">
+        <span className="text-xs text-gray-600">
+          {resource.subject || 'Subject not specified'}
+        </span>
+        
+        <div className="flex space-x-2">
+          {resource.fileUrl && (
+            <a 
+              href={resource.fileUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-indigo-600 hover:text-indigo-800"
+              title="Download"
+            >
+              <Download className="h-4 w-4" />
+            </a>
+          )}
+          
+          {resource.type === 'link' && resource.link && (
+            <a 
+              href={resource.link} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-indigo-600 hover:text-indigo-800"
+              title="Open link"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

@@ -22,7 +22,7 @@ const resourceSchema = new mongoose.Schema({
   semester: {
     type: Number,
     required: true,
-    min: 1,
+    min: 0, // 0 for placement resources (available to all semesters)
     max: 8,
   },
   uploadedBy: {
@@ -38,6 +38,27 @@ const resourceSchema = new mongoose.Schema({
     type: String,
     enum: ['study', 'placement', 'common'],
     default: 'study'
+  },
+  // For placement resources, we can store the specific category
+  placementCategory: {
+    type: String,
+    enum: [
+      'aptitude', 
+      'dsa', 
+      'oops', 
+      'os', 
+      'cn', 
+      'dbms', 
+      'interview', 
+      'hr', 
+      'resume', 
+      'technical', 
+      'soft-skills', 
+      'general'
+    ],
+    required: function() {
+      return this.category === 'placement';
+    }
   },
   stats: {
     views: { type: Number, default: 0 },

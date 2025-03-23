@@ -4,6 +4,7 @@ import { SubjectData, SubjectFolder } from '../../types/faculty';
 import { UploadOptionSelection } from './upload/UploadOptionSelection';
 import { SemesterSelection } from './upload/SemesterSelection';
 import { SubjectCreationForm } from './upload/SubjectCreationForm';
+import { PlacementCategorySelection } from './upload/PlacementCategorySelection';
 
 type UploadOption = 'semester' | 'common' | 'placement' | 'subject-folder' | 'direct-upload';
 type SemesterNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -19,9 +20,9 @@ export const UploadWorkflow = ({
   onCancel,
   showAvailableSubjects = false
 }: UploadWorkflowProps) => {
-  const [step, setStep] = useState<'initial' | 'semester-selection' | 'subject-creation'>('initial');
+  const [step, setStep] = useState<'initial' | 'semester-selection' | 'subject-creation' | 'placement-category'>('initial');
   const [selectedSemester, setSelectedSemester] = useState<SemesterNumber | null>(null);
-
+  
   // Get existing subjects
   const existingSubjects: SubjectFolder[] = window.subjectFolders || [];
 
@@ -30,17 +31,14 @@ export const UploadWorkflow = ({
       setStep('semester-selection');
     } else if (option === 'subject-folder') {
       setStep('subject-creation');
+    } else if (option === 'placement') {
+      // For placement resources, go to placement categories
+      setStep('placement-category');
     } else if (option === 'common') {
       // For common resources, skip semester selection
       onSelectOption('direct-upload', { 
         resourceType: 'common',
         subject: 'Common Resources'
-      });
-    } else if (option === 'placement') {
-      // For placement resources, skip semester selection
-      onSelectOption('direct-upload', { 
-        resourceType: 'placement',
-        subject: 'Placement Resources'
       });
     } else {
       // For direct upload, pass directly to parent
@@ -51,6 +49,17 @@ export const UploadWorkflow = ({
   const handleSemesterSelect = (semester: SemesterNumber) => {
     setSelectedSemester(semester);
     setStep('subject-creation');
+  };
+
+  const handlePlacementCategorySelect = (categoryId: string, categoryName: string) => {
+    // For placement resources, go directly to upload without asking for semester
+    onSelectOption('direct-upload', { 
+      resourceType: 'placement',
+      subject: `Placement - ${categoryName}`,
+      category: 'placement',
+      semester: 0, // Semester 0 means all semesters (placement is common)
+      categoryId
+    });
   };
 
   const handleCreateSubjectFolders = (newSubjects: SubjectData[]) => {
@@ -91,6 +100,13 @@ export const UploadWorkflow = ({
           onCreateSubjectFolders={handleCreateSubjectFolders}
           existingSubjectsForSemester={existingSubjectsForSemester}
           showAvailableSubjects={showAvailableSubjects}
+        />
+      )}
+
+      {step === 'placement-category' && (
+        <PlacementCategorySelection
+          onCategorySelect={handlePlacementCategorySelect}
+          onBack={() => setStep('initial')}
         />
       )}
     </div>

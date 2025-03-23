@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Search, BookOpen, Loader2, ExternalLink, Download } from 'lucide-react';
+import { Search, BookOpen, Loader2, ExternalLink, Download, X } from 'lucide-react';
 import serperService from '../../services/serper.service';
 import { toast } from 'react-hot-toast';
 import api from '../../services/api';
@@ -23,6 +23,7 @@ export const AIResourceSearch = ({ initialSearchType = 'educational' }: AIResour
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searchType, setSearchType] = useState<'educational' | 'placement'>(initialSearchType);
   const [isLoading, setIsLoading] = useState(false);
+  const [showResults, setShowResults] = useState(true);
   const { user } = useAuth();
   
   const handleSearch = async (e: React.FormEvent) => {
@@ -35,6 +36,7 @@ export const AIResourceSearch = ({ initialSearchType = 'educational' }: AIResour
     
     setIsLoading(true);
     setResults([]);
+    setShowResults(true);
     
     try {
       let searchResults;
@@ -82,6 +84,10 @@ export const AIResourceSearch = ({ initialSearchType = 'educational' }: AIResour
       console.error('Error saving resource:', error);
       toast.error('Failed to save resource');
     }
+  };
+  
+  const closeResults = () => {
+    setShowResults(false);
   };
   
   return (
@@ -151,21 +157,30 @@ export const AIResourceSearch = ({ initialSearchType = 'educational' }: AIResour
         </div>
       )}
       
-      {!isLoading && results.length > 0 && (
-        <div className="space-y-6">
-          <h3 className="text-lg font-medium">{results.length} results found</h3>
+      {!isLoading && results.length > 0 && showResults && (
+        <div className="space-y-6 relative">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium">{results.length} results found</h3>
+            <button 
+              onClick={closeResults} 
+              className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              aria-label="Close results"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
           
           <div className="space-y-4">
             {results.map((result, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                <div className="flex justify-between">
-                  <h3 className="text-lg font-medium text-indigo-700">
+              <div key={index} className="border border-gray-200 rounded-lg p-5 hover:bg-gray-50">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-indigo-700 mb-1 flex-1">
                     {result.title}
                   </h3>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-2 flex-shrink-0 ml-2">
                     <button
                       onClick={() => saveResource(result)}
-                      className="text-green-600 hover:text-green-800"
+                      className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50"
                       title="Save to your resources"
                     >
                       <Download className="h-5 w-5" />
@@ -174,7 +189,7 @@ export const AIResourceSearch = ({ initialSearchType = 'educational' }: AIResour
                       href={result.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-indigo-600 hover:text-indigo-800"
+                      className="text-indigo-600 hover:text-indigo-800 p-1 rounded-full hover:bg-indigo-50"
                       title="Open in new tab"
                     >
                       <ExternalLink className="h-5 w-5" />
@@ -182,12 +197,17 @@ export const AIResourceSearch = ({ initialSearchType = 'educational' }: AIResour
                   </div>
                 </div>
                 
-                <p className="text-sm text-gray-600 mt-1">{result.snippet}</p>
+                <p className="text-gray-600 mt-2">{result.snippet}</p>
                 
-                <div className="mt-2 flex items-center text-xs text-gray-500">
-                  <span className="truncate">
-                    {result.link.length > 60 ? `${result.link.substring(0, 60)}...` : result.link}
-                  </span>
+                <div className="mt-3 flex items-center text-xs text-gray-500">
+                  <a 
+                    href={result.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-500 hover:underline truncate max-w-full"
+                  >
+                    {result.link}
+                  </a>
                 </div>
               </div>
             ))}

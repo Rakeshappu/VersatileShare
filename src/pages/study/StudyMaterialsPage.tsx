@@ -6,12 +6,15 @@ import { StudyMaterialsHeader } from '../../components/study/StudyMaterialsHeade
 import { groupBySemester, groupBySubject } from '../../utils/studyUtils';
 import { FacultyResource } from '../../types/faculty';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const StudyMaterialsPage = () => {
+  const { user } = useAuth();
   const [selectedSemester, setSelectedSemester] = useState<number>(1);
   const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'alphabetical'>('recent');
   const [resources, setResources] = useState<FacultyResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [availableSemesters, setAvailableSemesters] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8]);
   
   // Poll for updates to get the latest resources
   useEffect(() => {
@@ -45,6 +48,22 @@ export const StudyMaterialsPage = () => {
     return () => clearTimeout(timer);
   }, []);
   
+  // Restrict available semesters for students based on their current semester
+  useEffect(() => {
+    if (user) {
+      // If user is admin or faculty, allow all semesters
+      if (user.role === 'admin' || user.role === 'faculty') {
+        setAvailableSemesters([1, 2, 3, 4, 5, 6, 7, 8]);
+      } else {
+        // For students, only allow their current semester
+        // Assuming user has a semester field or we're using 1 as default
+        const userSemester = user.semester || 1;
+        setAvailableSemesters([userSemester]);
+        setSelectedSemester(userSemester);
+      }
+    }
+  }, [user]);
+  
   // Group resources by semester
   const resourcesBySemester = groupBySemester(resources);
   
@@ -57,9 +76,11 @@ export const StudyMaterialsPage = () => {
   // Sort subjects alphabetically
   const sortedSubjects = Object.keys(subjectGroups).sort();
   
-  // Handle semester change
+  // Handle semester change - only if the semester is available for the user
   const handleSemesterChange = (semester: number) => {
-    setSelectedSemester(semester);
+    if (availableSemesters.includes(semester)) {
+      setSelectedSemester(semester);
+    }
   };
 
   // Animation variants
@@ -109,6 +130,7 @@ export const StudyMaterialsPage = () => {
           onSemesterChange={handleSemesterChange}
           sortBy={sortBy}
           onSortChange={(sort) => setSortBy(sort as 'recent' | 'popular' | 'alphabetical')}
+          availableSemesters={availableSemesters}
         />
       </motion.div>
       
@@ -118,7 +140,7 @@ export const StudyMaterialsPage = () => {
           variants={itemVariants}
         >
           <p className="text-lg">No resources available for Semester {selectedSemester}</p>
-          <p className="mt-2">Check other semesters or wait for your faculty to upload resources.</p>
+          <p className="mt-2">Check back later or ask your faculty to upload resources.</p>
         </motion.div>
       ) : (
         <motion.div 

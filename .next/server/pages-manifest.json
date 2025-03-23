@@ -6,5 +6,6 @@
   "/api/db/status": "pages/api/db/status.js",
   "/api/subject-folders": "pages/api/subject-folders.js",
   "/api/resources": "pages/api/resources.js",
-  "/api/user/search-history": "pages/api/user/search-history.js"
+  "/api/user/activity": "pages/api/user/activity.js",
+  "/api/auth/me": "pages/api/auth/me.js"
 }

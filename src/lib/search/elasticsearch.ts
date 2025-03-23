@@ -72,22 +72,24 @@ export const createResourceIndex = async () => {
 export const indexResource = async (resource: any) => {
   const client = getElasticsearchClient();
   
+  const documentToIndex = {
+    title: resource.title,
+    description: resource.description,
+    content: resource.content || '',
+    type: resource.type,
+    subject: resource.subject,
+    semester: resource.semester,
+    uploadedBy: resource.uploadedBy.toString(),
+    department: resource.department || 'ISE',
+    tags: resource.tags || [],
+    createdAt: resource.createdAt,
+    updatedAt: resource.updatedAt,
+  };
+  
   await client.index({
     index: 'resources',
     id: resource._id.toString(),
-    document: {
-      title: resource.title,
-      description: resource.description,
-      content: resource.content || '',
-      type: resource.type,
-      subject: resource.subject,
-      semester: resource.semester,
-      uploadedBy: resource.uploadedBy.toString(),
-      department: resource.department || 'ISE',
-      tags: resource.tags || [],
-      createdAt: resource.createdAt,
-      updatedAt: resource.updatedAt,
-    },
+    document: documentToIndex,
     refresh: true,
   });
 };
@@ -98,10 +100,12 @@ export const indexResource = async (resource: any) => {
 export const updateIndexedResource = async (resourceId: string, updates: any) => {
   const client = getElasticsearchClient();
   
+  const updatedFields = { ...updates, updatedAt: new Date() };
+  
   await client.update({
     index: 'resources',
     id: resourceId,
-    doc: { ...updates, updatedAt: new Date() },
+    doc: updatedFields,
     refresh: true,
   });
 };
@@ -187,7 +191,7 @@ export const searchResources = async ({
   const total = result.hits.total as { value: number };
   const hits = result.hits.hits.map((hit) => ({
     id: hit._id,
-    ...hit._source,
+    ...(hit._source as any),  // Cast to any to avoid spread error
     score: hit._score,
     highlights: hit.highlight,
   }));

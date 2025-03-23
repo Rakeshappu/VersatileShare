@@ -8,14 +8,23 @@ interface ResourceUploadProps {
   onUpload: (data: UploadFormData) => Promise<void>;
   initialSubject?: string;
   initialSemester?: number;
+  initialCategory?: string;
 }
 
-export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: ResourceUploadProps) => {
+export const ResourceUpload = ({ 
+  onUpload, 
+  initialSubject, 
+  initialSemester, 
+  initialCategory
+}: ResourceUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [selectedSemester, setSelectedSemester] = useState<number>(initialSemester || 1);
   const [semesterSubjects, setSemesterSubjects] = useState<SubjectFolder[]>([]);
+  const [isPlacementResource, setIsPlacementResource] = useState<boolean>(
+    initialCategory === 'placement' || (initialSubject && initialSubject.includes('Placement'))
+  );
   
   const [formData, setFormData] = useState<UploadFormData>({
     title: '',
@@ -29,6 +38,11 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
 
   // Initialize and get subject folders for the selected semester
   useEffect(() => {
+    if (isPlacementResource) {
+      // Don't need to fetch subjects for placement resources
+      return;
+    }
+    
     // Get available subject folders from global state
     const allSubjectFolders = window.subjectFolders || [];
     
@@ -47,7 +61,7 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
         subject: ''
       }));
     }
-  }, [selectedSemester, formData.semester]);
+  }, [selectedSemester, formData.semester, isPlacementResource]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -77,7 +91,7 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
         throw new Error('Title is required');
       }
 
-      if (!formData.subject.trim()) {
+      if (!isPlacementResource && !formData.subject.trim()) {
         throw new Error('Subject is required');
       }
 
@@ -91,7 +105,7 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
 
       await onUpload({
         ...formData,
-        semester: selectedSemester
+        semester: isPlacementResource ? 0 : selectedSemester
       });
       
       // Reset form after successful upload
@@ -100,7 +114,7 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
         description: '',
         type: 'document',
         subject: initialSubject || '',
-        semester: selectedSemester,
+        semester: isPlacementResource ? 0 : selectedSemester,
         file: undefined,
         link: '',
       });
@@ -119,9 +133,27 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
     }
   };
 
+  // For placement resources we use placement categories from the parent component
+  const placementCategories = [
+    { id: 'aptitude', name: 'Aptitude' },
+    { id: 'dsa', name: 'Data Structures & Algorithms' },
+    { id: 'oops', name: 'Object-Oriented Programming' },
+    { id: 'os', name: 'Operating Systems' },
+    { id: 'cn', name: 'Computer Networks' },
+    { id: 'dbms', name: 'Database Management' },
+    { id: 'interview', name: 'Interview Preparation' },
+    { id: 'hr', name: 'HR Interview' },
+    { id: 'resume', name: 'Resume Building' },
+    { id: 'technical', name: 'Technical Skills' },
+    { id: 'soft-skills', name: 'Soft Skills' },
+    { id: 'general', name: 'General Resources' }
+  ];
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold text-gray-800 mb-6">Upload Resource</h2>
+      <h2 className="text-xl font-semibold text-gray-800 mb-6">
+        {isPlacementResource ? 'Upload Placement Resource' : 'Upload Resource'}
+      </h2>
       
       {error && (
         <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -162,52 +194,84 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
             </select>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Semester*
-            </label>
-            <select
-              name="semester"
-              value={selectedSemester}
-              onChange={handleSemesterChange}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                <option key={sem} value={sem}>Semester {sem}</option>
-              ))}
-            </select>
-          </div>
+          {/* Show semester selection only for non-placement resources */}
+          {!isPlacementResource && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Semester*
+              </label>
+              <select
+                name="semester"
+                value={selectedSemester}
+                onChange={handleSemesterChange}
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                  <option key={sem} value={sem}>Semester {sem}</option>
+                ))}
+              </select>
+            </div>
+          )}
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Subject*
-            </label>
-            <select
-              name="subject"
-              value={formData.subject}
-              onChange={handleInputChange}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              required
-            >
-              <option value="">Select a subject</option>
-              {semesterSubjects.length > 0 ? (
-                // Display subjects for the selected semester
-                semesterSubjects.map((folder, index) => (
-                  <option key={index} value={folder.name}>
-                    {folder.name} ({folder.lecturerName})
+          {/* For placement resources, show placement categories instead of subjects */}
+          {isPlacementResource ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category*
+              </label>
+              <select
+                name="subject"
+                value={formData.subject?.replace('Placement - ', '') || ''}
+                onChange={(e) => {
+                  const categoryName = e.target.value;
+                  setFormData({
+                    ...formData,
+                    subject: `Placement - ${categoryName}`
+                  });
+                }}
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              >
+                <option value="">Select a category</option>
+                {placementCategories.map(category => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
                   </option>
-                ))
-              ) : (
-                <option value="" disabled>No subjects available for this semester</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Subject*
+              </label>
+              <select
+                name="subject"
+                value={formData.subject}
+                onChange={handleInputChange}
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              >
+                <option value="">Select a subject</option>
+                {semesterSubjects.length > 0 ? (
+                  // Display subjects for the selected semester
+                  semesterSubjects.map((folder, index) => (
+                    <option key={index} value={folder.name}>
+                      {folder.name} ({folder.lecturerName})
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No subjects available for this semester</option>
+                )}
+              </select>
+              
+              {semesterSubjects.length === 0 && !isPlacementResource && (
+                <p className="mt-1 text-sm text-gray-500">
+                  No subjects available. Please create subject folders first.
+                </p>
               )}
-            </select>
-            
-            {semesterSubjects.length === 0 && (
-              <p className="mt-1 text-sm text-gray-500">
-                No subjects available. Please create subject folders first.
-              </p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         
         <div>
@@ -281,9 +345,9 @@ export const ResourceUpload = ({ onUpload, initialSubject, initialSemester }: Re
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isUploading || (semesterSubjects.length === 0)}
+            disabled={isUploading || (!isPlacementResource && semesterSubjects.length === 0)}
             className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-              isUploading || (semesterSubjects.length === 0) ? 'opacity-50 cursor-not-allowed' : ''
+              isUploading || (!isPlacementResource && semesterSubjects.length === 0) ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             {isUploading ? 'Uploading...' : 'Upload Resource'}
