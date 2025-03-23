@@ -1,123 +1,212 @@
-import React from 'react';
-import { BarChart2, Users, ThumbsUp, MessageSquare, TrendingUp } from 'lucide-react';
-import { ResourceAnalytics } from '../../types/faculty';
-import { AnalyticsCard } from '../analytics/AnalyticsCard';
+
+import { useEffect, useState } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { User } from 'lucide-react';
+import api from '../../services/api';
 
 interface ResourceAnalyticsProps {
-  analytics: ResourceAnalytics;
+  analytics: {
+    views: number;
+    likes: number;
+    comments: number;
+    downloads: number;
+    lastViewed: string;
+    dailyViews: Array<{ date: string; count: number }>;
+    topDepartments: Array<{ name: string; count: number }>;
+    studentFeedback: Array<{ rating: number; count: number }>;
+  };
   resourceTitle: string;
+  resourceId?: string;
 }
 
-export const ResourceAnalyticsView = ({ analytics, resourceTitle }: ResourceAnalyticsProps) => {
+interface LikeData {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  timestamp: string;
+}
+
+interface CommentData {
+  content: string;
+  author: {
+    _id: string;
+    fullName: string;
+    email: string;
+  };
+  createdAt: string;
+}
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+export const ResourceAnalyticsView = ({ analytics, resourceTitle, resourceId }: ResourceAnalyticsProps) => {
+  const [likeData, setLikeData] = useState<LikeData[]>([]);
+  const [commentData, setCommentData] = useState<CommentData[]>([]);
+  const [isLoadingLikes, setIsLoadingLikes] = useState(false);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+
+  useEffect(() => {
+    if (resourceId) {
+      // Fetch like data
+      const fetchLikeData = async () => {
+        setIsLoadingLikes(true);
+        try {
+          const response = await api.get(`/api/resources/${resourceId}/like-status`);
+          if (response.data && response.data.likedBy) {
+            setLikeData(response.data.likedBy);
+          }
+        } catch (error) {
+          console.error('Error fetching like data:', error);
+        } finally {
+          setIsLoadingLikes(false);
+        }
+      };
+
+      // Fetch comment data
+      const fetchCommentData = async () => {
+        setIsLoadingComments(true);
+        try {
+          const response = await api.get(`/api/resources/${resourceId}/comments`);
+          if (response.data && response.data.comments) {
+            setCommentData(response.data.comments);
+          }
+        } catch (error) {
+          console.error('Error fetching comment data:', error);
+        } finally {
+          setIsLoadingComments(false);
+        }
+      };
+
+      fetchLikeData();
+      fetchCommentData();
+    }
+  }, [resourceId]);
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold text-gray-800 mb-6">
-        Analytics for "{resourceTitle}"
-      </h2>
-
+      <h2 className="text-xl font-semibold text-gray-800 mb-6">Analytics for "{resourceTitle}"</h2>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <AnalyticsCard
-          title="Total Views"
-          value={analytics.views}
-          change={`${((analytics.dailyViews[6].count - analytics.dailyViews[0].count) / analytics.dailyViews[0].count * 100).toFixed(1)}%`}
-          icon={<BarChart2 className="h-6 w-6 text-indigo-600" />}
-        />
-        <AnalyticsCard
-          title="Unique Students"
-          value={analytics.topDepartments.reduce((acc, curr) => acc + curr.count, 0)}
-          icon={<Users className="h-6 w-6 text-blue-600" />}
-        />
-        <AnalyticsCard
-          title="Total Likes"
-          value={analytics.likes}
-          icon={<ThumbsUp className="h-6 w-6 text-green-600" />}
-        />
-        <AnalyticsCard
-          title="Comments"
-          value={analytics.comments}
-          icon={<MessageSquare className="h-6 w-6 text-purple-600" />}
-        />
+        <StatCard title="Views" value={analytics.views} icon="👁️" />
+        <StatCard title="Likes" value={analytics.likes} icon="👍" />
+        <StatCard title="Comments" value={analytics.comments} icon="💬" />
+        <StatCard title="Downloads" value={analytics.downloads} icon="📥" />
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Daily Views Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Daily Views</h3>
-          <div className="h-64">
-            {/* Add your preferred charting library here */}
-            <div className="flex items-center justify-center h-full text-gray-500">
-              Chart placeholder
-            </div>
-          </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">Daily Views</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={analytics.dailyViews}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tickFormatter={(date) => new Date(date).toLocaleDateString()} />
+              <YAxis />
+              <Tooltip
+                labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                formatter={(value) => [`${value} views`, 'Views']}
+              />
+              <Bar dataKey="count" fill="#4F46E5" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-
-        {/* Department Distribution */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Department Distribution</h3>
-          <div className="space-y-4">
-            {analytics.topDepartments.map((dept) => (
-              <div key={dept.name} className="flex items-center">
-                <span className="w-32 text-sm text-gray-600">{dept.name}</span>
-                <div className="flex-1 mx-4">
-                  <div className="h-2 bg-gray-200 rounded-full">
-                    <div
-                      className="h-2 bg-indigo-600 rounded-full"
-                      style={{
-                        width: `${(dept.count / analytics.views) * 100}%`,
-                      }}
-                    />
+        
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">Top Departments</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={analytics.topDepartments}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="count"
+                nameKey="name"
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+              >
+                {analytics.topDepartments.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value, name, props) => [`${value} students`, props.payload.name]} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      
+      {/* Who Liked This Resource Section */}
+      <div className="mb-8">
+        <h3 className="text-lg font-medium text-gray-800 mb-4">Who Liked This Resource</h3>
+        {isLoadingLikes ? (
+          <p className="text-gray-500">Loading like data...</p>
+        ) : likeData.length > 0 ? (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {likeData.map((like, index) => (
+                <div key={index} className="flex items-center p-3 border border-gray-200 rounded-md">
+                  <div className="bg-indigo-100 p-2 rounded-full mr-3">
+                    <User className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800">{like.userName}</p>
+                    <p className="text-sm text-gray-500">{like.userEmail}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(like.timestamp).toLocaleDateString()} at {new Date(like.timestamp).toLocaleTimeString()}
+                    </p>
                   </div>
                 </div>
-                <span className="text-sm text-gray-600">{dept.count}</span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-500">No likes yet.</p>
+        )}
+      </div>
+      
+      {/* Comments Section */}
+      <div>
+        <h3 className="text-lg font-medium text-gray-800 mb-4">Comments</h3>
+        {isLoadingComments ? (
+          <p className="text-gray-500">Loading comments...</p>
+        ) : commentData.length > 0 ? (
+          <div className="space-y-4">
+            {commentData.map((comment, index) => (
+              <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-start mb-2">
+                  <div className="bg-indigo-100 p-2 rounded-full mr-3">
+                    <User className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800">{comment.author.fullName}</p>
+                    <p className="text-sm text-gray-500">{comment.author.email}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(comment.createdAt).toLocaleDateString()} at {new Date(comment.createdAt).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-gray-700 pl-10">{comment.content}</p>
               </div>
             ))}
           </div>
-        </div>
+        ) : (
+          <p className="text-gray-500">No comments yet.</p>
+        )}
+      </div>
+    </div>
+  );
+};
 
-        {/* Student Feedback */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Student Feedback</h3>
-          <div className="space-y-4">
-            {analytics.studentFeedback.map((feedback) => (
-              <div key={feedback.rating} className="flex items-center">
-                <span className="w-24 text-sm text-gray-600">
-                  {feedback.rating} stars
-                </span>
-                <div className="flex-1 mx-4">
-                  <div className="h-2 bg-gray-200 rounded-full">
-                    <div
-                      className="h-2 bg-yellow-400 rounded-full"
-                      style={{
-                        width: `${(feedback.count / analytics.studentFeedback.reduce((acc, curr) => acc + curr.count, 0)) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-                <span className="text-sm text-gray-600">{feedback.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Performance Trends</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-5 w-5 text-green-500" />
-                <span className="text-sm text-gray-600">Engagement Rate</span>
-              </div>
-              <span className="text-sm font-medium text-green-500">+12.5%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-blue-500" />
-                <span className="text-sm text-gray-600">Student Retention</span>
-              </div>
-              <span className="text-sm font-medium text-blue-500">85%</span>
-            </div>
-          </div>
+const StatCard = ({ title, value, icon }: { title: string; value: number; icon: string }) => {
+  return (
+    <div className="bg-gray-50 p-4 rounded-lg">
+      <div className="flex items-center">
+        <div className="text-2xl mr-3">{icon}</div>
+        <div>
+          <p className="text-gray-500 text-sm">{title}</p>
+          <p className="text-2xl font-semibold text-gray-800">{value}</p>
         </div>
       </div>
     </div>

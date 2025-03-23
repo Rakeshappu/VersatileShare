@@ -47,11 +47,14 @@ export const elasticsearchConfig = {
 export const socketConfig = {
   cors: {
     origin: process.env.NODE_ENV === 'development'
-      ? 'http://localhost:5173'
+      ? ['http://localhost:5173', 'http://localhost:8080']
       : ['https://versatileshare.vercel.app', 'https://versatileshare.netlify.app'],
     methods: ['GET', 'POST'],
     credentials: true,
+    allowedHeaders: ['Authorization']
   },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
   connectionRetry: {
     attempts: 5,
     delay: 3000, // 3 seconds

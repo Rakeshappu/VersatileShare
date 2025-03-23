@@ -1,5 +1,5 @@
 
-import { Search, Bell, User as UserIcon, LogOut, Settings, UserCircle, SunMoon, Loader } from 'lucide-react';
+import { Search, Bell, LogOut, Settings, UserCircle, SunMoon, Loader } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -15,6 +15,8 @@ export const Header = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const navigate = useNavigate();
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -61,52 +63,72 @@ export const Header = () => {
     
     setIsSearching(true);
     setShowResults(true);
+    setAiSummary(null);
+    setRelatedQuestions([]);
     
     try {
-      // Get AI-enhanced search results
-      const result = await generateText(`Find best educational resources and materials online about: ${searchQuery}. Return a well-structured, helpful response with 4-5 high-quality resources.`);
+      // Get AI-enhanced search results from Perplexity
+      const result = await generateText(`Find the best educational resources, research papers, and learning materials about: ${searchQuery}. Include details about each resource including title, source, and a brief description of what can be learned.`);
       
-      // Parse AI results into structured format
-      const structuredResults = [
-        { 
-          title: `${searchQuery} - Comprehensive Guide`, 
-          source: 'Academic Resource Hub', 
-          snippet: `Learn everything about ${searchQuery} from experts in the field.`,
-          url: `https://example.com/resources/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
-        },
-        { 
-          title: `Understanding ${searchQuery}`, 
-          source: 'Educational Portal', 
-          snippet: 'A step-by-step explanation with examples and practice exercises.',
-          url: `https://example.com/learn/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
-        },
-        { 
-          title: `${searchQuery} Advanced Concepts`, 
-          source: 'Scientific Journal', 
-          snippet: 'Cutting-edge research and developments in this field.',
-          url: `https://example.com/journal/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
-        },
-        { 
-          title: `${searchQuery} for Beginners`, 
-          source: 'Learning Platform', 
-          snippet: 'Start your journey to mastering this subject with simple explanations.',
-          url: `https://example.com/beginners/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+      if (result.success) {
+        setAiSummary(result.text);
+        
+        // Extract related questions if available
+        if (result.relatedQuestions && result.relatedQuestions.length > 0) {
+          setRelatedQuestions(result.relatedQuestions);
         }
-      ];
-      
-      setSearchResults(structuredResults);
-      
-      // Dispatch global search event
-      const searchEvent = new CustomEvent('globalSearch', { 
-        detail: { 
-          query: searchQuery,
-          results: structuredResults,
-          aiSummary: result.text
-        } 
-      });
-      document.dispatchEvent(searchEvent);
-      
-      toast.success('Search completed successfully!');
+        
+        // Parse AI results into structured format - this is a fallback if we can't extract structured data
+        const structuredResults = [
+          { 
+            title: `${searchQuery} - Comprehensive Guide`, 
+            source: 'Academic Resource Hub', 
+            snippet: `Learn everything about ${searchQuery} from experts in the field.`,
+            url: `https://example.com/resources/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+          },
+          { 
+            title: `Understanding ${searchQuery}`, 
+            source: 'Educational Portal', 
+            snippet: 'A step-by-step explanation with examples and practice exercises.',
+            url: `https://example.com/learn/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+          },
+          { 
+            title: `${searchQuery} Advanced Concepts`, 
+            source: 'Scientific Journal', 
+            snippet: 'Cutting-edge research and developments in this field.',
+            url: `https://example.com/journal/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+          },
+          { 
+            title: `${searchQuery} for Beginners`, 
+            source: 'Learning Platform', 
+            snippet: 'Start your journey to mastering this subject with simple explanations.',
+            url: `https://example.com/beginners/${searchQuery.toLowerCase().replace(/\s+/g, '-')}`
+          }
+        ];
+        
+        setSearchResults(structuredResults);
+        
+        // Dispatch global search event
+        const searchEvent = new CustomEvent('globalSearch', { 
+          detail: { 
+            query: searchQuery,
+            results: structuredResults,
+            aiSummary: result.text,
+            relatedQuestions: result.relatedQuestions || []
+          } 
+        });
+        document.dispatchEvent(searchEvent);
+        
+        toast.success('Search completed successfully!');
+      } else {
+        toast.error('Search failed. Using fallback results.');
+        setSearchResults([{ 
+          title: `${searchQuery} - Search Results`, 
+          source: 'Search Engine', 
+          snippet: 'Sorry, we could not process your search request properly. Please try again later.',
+          url: '#'
+        }]);
+      }
       
     } catch (error) {
       console.error('Search failed:', error);
@@ -126,10 +148,10 @@ export const Header = () => {
   
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-      <div className="px-4 py-3">
+      <div className="px-4 py-3 max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center flex-1">
-            <div className="relative w-full max-w-xl" ref={searchRef}>
+            <div className="relative w-full max-w-3xl mx-auto" ref={searchRef}>
               <form onSubmit={handleSearch}>
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3">
                   {isSearching ? (
@@ -147,14 +169,23 @@ export const Header = () => {
                 />
               </form>
               
-              {showResults && searchResults.length > 0 && (
+              {showResults && (searchResults.length > 0 || isSearching) && (
                 <div className="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 ring-1 ring-black ring-opacity-5">
                   <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Web Search Results for "{searchQuery}"
                     </p>
                   </div>
-                  <ul className="max-h-60 overflow-y-auto">
+                  
+                  {aiSummary && (
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/20">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                        {aiSummary}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <ul className="max-h-96 overflow-y-auto">
                     {searchResults.map((result, index) => (
                       <li 
                         key={index} 
@@ -181,6 +212,45 @@ export const Header = () => {
                         </div>
                       </li>
                     ))}
+                    
+                    {relatedQuestions.length > 0 && (
+                      <li className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Related Questions
+                        </p>
+                        <ul className="space-y-2">
+                          {relatedQuestions.map((question, index) => (
+                            <li 
+                              key={index}
+                              className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                              onClick={() => {
+                                setSearchQuery(question);
+                                setShowResults(false);
+                                setTimeout(() => {
+                                  handleSearch(new Event('submit') as any);
+                                }, 100);
+                              }}
+                            >
+                              {question}
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    )}
+                    
+                    {isSearching && (
+                      <li className="px-4 py-3">
+                        <div className="animate-pulse flex space-x-4">
+                          <div className="flex-1 space-y-4 py-1">
+                            <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                            <div className="space-y-2">
+                              <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                              <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-5/6"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    )}
                   </ul>
                 </div>
               )}

@@ -14,6 +14,16 @@ interface SearchFilters {
   category: string[];
 }
 
+// Define a simplified Resource type for search results
+interface SearchResource extends Partial<Resource> {
+  _id: string;
+  title: string;
+  description?: string;
+  type: string;
+  subject?: string;
+  semester?: number;
+}
+
 export const SearchBar = () => {
   const [filters, setFilters] = useState<SearchFilters>({
     query: '',
@@ -21,9 +31,10 @@ export const SearchBar = () => {
     category: []
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [searchResults, setSearchResults] = useState<Resource[] | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchResource[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,28 +45,28 @@ export const SearchBar = () => {
     
     setIsSearching(true);
     setAiSummary(null);
+    setRelatedQuestions([]);
     
     try {
-      // Search for resources in database
-      const response = await api.get(`/api/resources?q=${encodeURIComponent(filters.query)}`);
+      // First try to search local resources in database
+      const response = await api.get(`/api/search?q=${encodeURIComponent(filters.query)}`);
       const results = response.data.results || [];
       setSearchResults(results);
       
-      // If no results, show a message
-      if (results.length === 0) {
-        toast.error('No resources found. Try different keywords.');
-      } else {
-        // Generate AI summary for the search results
-        try {
-          const aiResponse = await generateText(
-            `Summarize these educational resources about "${filters.query}" in 2-3 sentences: ${
-              results.map((r: Resource) => r.title + ": " + r.description).join("; ")
-            }`
-          );
+      // Then get AI-enhanced information from OpenAI
+      try {
+        const aiResponse = await generateText(
+          `Provide a comprehensive but concise summary of educational resources about "${filters.query}". Include key concepts, learning outcomes, and why this topic is important for students.`
+        );
+        
+        if (aiResponse.success) {
           setAiSummary(aiResponse.text);
-        } catch (aiError) {
-          console.error('AI summary generation failed:', aiError);
+          if (aiResponse.relatedQuestions && aiResponse.relatedQuestions.length > 0) {
+            setRelatedQuestions(aiResponse.relatedQuestions);
+          }
         }
+      } catch (aiError) {
+        console.error('AI summary generation failed:', aiError);
       }
       
       // Dispatch event for global search
@@ -63,10 +74,16 @@ export const SearchBar = () => {
         detail: { 
           query: filters.query,
           results: results,
-          aiSummary: aiSummary
+          aiSummary: aiSummary,
+          relatedQuestions: relatedQuestions
         }
       });
       document.dispatchEvent(customEvent);
+      
+      // If no results, show a message
+      if (results.length === 0) {
+        toast.error('No local resources found. Showing AI-powered results from the web.');
+      }
       
     } catch (error) {
       console.error('Search failed:', error);
@@ -78,6 +95,13 @@ export const SearchBar = () => {
 
   const handleResourceClick = (resourceId: string) => {
     navigate(`/resources/${resourceId}`);
+  };
+
+  const handleRelatedQuestionClick = (question: string) => {
+    setFilters({ ...filters, query: question });
+    setTimeout(() => {
+      handleSearch(new Event('submit') as any);
+    }, 100);
   };
 
   // Focus the search input on component mount
@@ -211,13 +235,13 @@ export const SearchBar = () => {
           {aiSummary && (
             <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
               <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-1">AI Summary</h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">{aiSummary}</p>
+              <p className="text-gray-600 dark:text-gray-300 text-sm whitespace-pre-line">{aiSummary}</p>
             </div>
           )}
           
           <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-2">Search Results</h3>
           <div className="space-y-3">
-            {searchResults.map(resource => (
+            {searchResults.map((resource) => (
               <div 
                 key={resource._id}
                 className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors shadow-sm"
@@ -233,6 +257,23 @@ export const SearchBar = () => {
               </div>
             ))}
           </div>
+          
+          {relatedQuestions.length > 0 && (
+            <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
+              <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-2">Related Questions</h3>
+              <ul className="space-y-1">
+                {relatedQuestions.map((question, index) => (
+                  <li 
+                    key={index}
+                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    onClick={() => handleRelatedQuestionClick(question)}
+                  >
+                    {question}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>

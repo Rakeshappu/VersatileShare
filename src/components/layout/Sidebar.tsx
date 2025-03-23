@@ -14,7 +14,9 @@ import {
   Menu, 
   X,
   FileText,
-  Share2
+  Share2,
+  ShieldCheck,
+  Database
 } from 'lucide-react';
 
 export const Sidebar = () => {
@@ -85,10 +87,10 @@ export const Sidebar = () => {
 
   const AdminLinks = () => (
     <>
-      <SidebarLink icon={<FolderOpen />} text="Dashboard" path="/admin/dashboard" active={isActive('/admin/dashboard')} />
+      <SidebarLink icon={<ShieldCheck />} text="Dashboard" path="/admin/dashboard" active={isActive('/admin/dashboard')} />
       <SidebarLink icon={<Upload />} text="Upload Content" path="/admin/upload" active={isActive('/admin/upload')} />
       <SidebarLink icon={<Users />} text="Manage Users" path="/admin/users" active={isActive('/admin/users')} />
-      <SidebarLink icon={<FileText />} text="All Resources" path="/admin/resources" active={isActive('/admin/resources')} />
+      <SidebarLink icon={<Database />} text="All Resources" path="/admin/resources" active={isActive('/admin/resources')} />
       <SidebarLink icon={<Star />} text="Starred" path="/admin/starred" active={isActive('/admin/starred')} />
       <SidebarLink icon={<Download />} text="Downloads" path="/admin/downloads" active={isActive('/admin/downloads')} />
       <SidebarLink icon={<Trash />} text="Trash" path="/admin/trash" active={isActive('/admin/trash')} />

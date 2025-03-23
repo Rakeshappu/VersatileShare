@@ -9,6 +9,9 @@ export interface User {
   department: string;
   isEmailVerified: boolean;
   semester?: number; // Only for students
+  phoneNumber?: string;
+  avatar?: string;
+  streak?: number;
 }
 
 export interface SignupFormData {
@@ -31,10 +34,7 @@ export interface AuthResponse {
   token: string;
   user: User;
 }
-export interface LoginFormData {
-  email: string;
-  password: string;
-}
+
 export interface OtpVerificationData {
   email: string;
   otp: string;

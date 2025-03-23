@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Header } from './components/layout/Header';
@@ -22,13 +23,9 @@ import { StarredPage as FacultyStarredPage } from './pages/faculty/StarredPage';
 import { TrashPage as FacultyTrashPage } from './pages/faculty/TrashPage';
 import { SettingsPage as FacultySettingsPage } from './pages/faculty/SettingsPage';
 
-// Create placeholder component for Faculty upload
-const FacultyUpload = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Upload Resources</h1>
-    <p className="text-gray-600">This is the faculty upload page.</p>
-  </div>
-);
+// Faculty upload components
+import { ResourceUpload } from './components/faculty/ResourceUpload';
+import { UploadWorkflow } from './components/faculty/UploadWorkflow';
 
 function App() {
   const skipAuth = true;
@@ -161,7 +158,18 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <FacultyUpload />
+                      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <UploadWorkflow 
+                          onSelectOption={(option, data) => {
+                            console.log("Selected option:", option, data);
+                          }} 
+                          onCancel={() => {
+                            // Navigate back to faculty dashboard
+                            window.location.href = '/faculty/dashboard';
+                          }}
+                          showAvailableSubjects={true}
+                        />
+                      </div>
                     </div>
                   </div>
                 </PrivateRoute>
@@ -248,6 +256,64 @@ function App() {
                     <div className="flex-1">
                       <Header />
                       <AdminDashboard />
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/upload"
+              element={
+                <PrivateRoute role="admin">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <UploadWorkflow 
+                          onSelectOption={(option, data) => {
+                            console.log("Admin selected option:", option, data);
+                          }}
+                          onCancel={() => {
+                            window.location.href = '/admin/dashboard';
+                          }}
+                          showAvailableSubjects={true}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <PrivateRoute role="admin">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <h1 className="text-2xl font-bold mb-6">Manage Users</h1>
+                        <p>This is the admin user management page.</p>
+                      </div>
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/resources"
+              element={
+                <PrivateRoute role="admin">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <h1 className="text-2xl font-bold mb-6">All Resources</h1>
+                        <p>This is the admin resource management page.</p>
+                      </div>
                     </div>
                   </div>
                 </PrivateRoute>

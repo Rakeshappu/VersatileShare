@@ -8,7 +8,7 @@ const quickAccessItems = [
     icon: <Briefcase className="h-6 w-6" />,
     description: 'Interview prep, resume tips, and more',
     color: 'bg-purple-100 text-purple-600',
-    path: '/placement-prep'
+    path: '/placement'
   },
   {
     title: 'Competitive Programming',
@@ -22,7 +22,7 @@ const quickAccessItems = [
     icon: <BookOpen className="h-6 w-6" />,
     description: 'Notes, presentations, and guides',
     color: 'bg-green-100 text-green-600',
-    path: '/study-materials'
+    path: '/study'
   }
 ];
 

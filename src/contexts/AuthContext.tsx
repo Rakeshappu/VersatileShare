@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, SignupFormData } from '../types/auth';
 import { authService } from '../services/auth.service';
 import { useNavigate } from 'react-router-dom';
+import socketService from '../services/socket.service';
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +19,7 @@ interface AuthContextType {
   resendOTP: (email: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
   isAuthenticated: boolean;
+  updateUser: (userData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
+
+  // Flag to control socket usage
+  const useSocketFeatures = false; // Set to false to disable sockets completely
 
   useEffect(() => {
     const initAuth = async () => {
@@ -44,6 +49,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (currentUser) {
           setUser(currentUser);
           setIsAuthenticated(true);
+          
+          // Connect to socket service when authenticated - only if feature is enabled
+          if (useSocketFeatures) {
+            try {
+              socketService.connect(token);
+            } catch (socketError) {
+              console.error('Socket connection failed:', socketError);
+              // Non-critical error, don't affect the auth flow
+            }
+          }
         }
       } catch (error) {
         console.error('Auth initialization failed:', error);
@@ -56,7 +71,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initAuth();
+    
+    // Cleanup socket connection on unmount
+    return () => {
+      if (useSocketFeatures) {
+        socketService.disconnect();
+      }
+    };
   }, []);
+
+  // Function to update user data (used when profile is updated)
+  const updateUser = (userData: Partial<User>) => {
+    if (!user) return;
+    
+    const updatedUser = { ...user, ...userData };
+    setUser(updatedUser);
+    
+    // Update local storage
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
 
   const login = async (email: string, password: string) => {
     try {
@@ -65,6 +98,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await authService.login({ email, password });
       setUser(response.user);
       setIsAuthenticated(true);
+      
+      // Connect to socket - only if feature is enabled
+      if (useSocketFeatures && response.token) {
+        try {
+          socketService.connect(response.token);
+        } catch (socketError) {
+          console.error('Socket connection failed:', socketError);
+          // Non-critical error, continue auth flow
+        }
+      }
       
       // Navigate based on user role
       if (response.user.role === 'faculty') {
@@ -102,6 +145,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
+    
+    // Disconnect from socket - only if feature is enabled
+    if (useSocketFeatures) {
+      socketService.disconnect();
+    }
+    
     navigate('/auth/login');
   };
 
@@ -181,6 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resendOTP,
     resendVerification,
     isAuthenticated,
+    updateUser,
   };
 
   return (

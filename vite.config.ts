@@ -10,19 +10,25 @@ export default defineConfig({
     nodePolyfills(),
   ],
   server: {
-    port: 5173, // Use port 5173 as requested by the user
+    port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path,
+        rewrite: (path) => path
       },
       '/uploads': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-      }
+      },
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
     },
   },
   resolve: {

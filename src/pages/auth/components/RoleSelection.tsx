@@ -1,7 +1,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../../../types/auth';
-import { GraduationCap, Users, Share2 } from 'lucide-react';
+import { GraduationCap, Users, Share2, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const RoleSelection = () => {
@@ -32,7 +32,7 @@ export const RoleSelection = () => {
         </p>
       </motion.div>
       
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-md space-y-4">
         <motion.button
           initial={{ x: -100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -59,6 +59,20 @@ export const RoleSelection = () => {
             <Users className="h-8 w-8 text-purple-500" />
           </span>
           <span className="ml-4">Continue as Faculty</span>
+        </motion.button>
+        
+        <motion.button
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+          whileHover={{ scale: 1.03 }}
+          onClick={() => handleRoleSelect('admin')}
+          className="group relative w-full flex items-center justify-center py-6 px-4 border-2 border-red-100 text-lg font-medium rounded-xl text-red-600 bg-white hover:bg-red-50 transition-all shadow-md hover:shadow-lg"
+        >
+          <span className="absolute left-0 inset-y-0 flex items-center pl-6">
+            <ShieldCheck className="h-8 w-8 text-red-500" />
+          </span>
+          <span className="ml-4">Continue as Administrator</span>
         </motion.button>
       </div>
     </div>

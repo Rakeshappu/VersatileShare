@@ -1,38 +1,113 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Edit2, Building, GraduationCap, Book, ChevronRight, Award, FileText, Settings, Camera, Mail, Phone, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import api from '../../services/api';
 
 export const ProfilePage = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [editing, setEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || '',
-    email: user?.email || '',
-    phoneNumber: user?.phoneNumber || '',
+    fullName: '',
+    email: '',
+    phoneNumber: '',
     gender: 'Male',
-    department: user?.department || '',
+    department: '',
     batch: '2025',
     degree: 'B.E Information Science'
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [profileImage, setProfileImage] = useState<string>(
-    user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || 'User')}&background=random`
-  );
+  const [profileImage, setProfileImage] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleEditToggle = (section: string) => {
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: user.fullName || '',
+        email: user.email || '',
+        phoneNumber: user.phoneNumber || '',
+        department: user.department || '',
+        gender: user.gender || 'Male',
+        batch: user.batch || '2025',
+        degree: user.degree || 'B.E Information Science'
+      }));
+      
+      setProfileImage(
+        user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || 'User')}&background=random`
+      );
+    }
+  }, [user]);
+
+  const handleEditToggle = async (section: string) => {
     if (editing === section) {
       setEditing(null);
-      // Here you would normally save changes to the backend
-      toast.success('Profile updated successfully!');
+      
+      if (section === 'personal') {
+        await saveProfileChanges();
+      }
     } else {
       setEditing(section);
     }
   };
 
+  const saveProfileChanges = async () => {
+    setIsLoading(true);
+    
+    try {
+      console.log('Saving profile with data:', {
+        ...formData,
+        avatar: profileImage.startsWith('data:') ? profileImage : undefined
+      });
+      
+      const response = await api.put('/api/user/profile', {
+        fullName: formData.fullName,
+        phoneNumber: formData.phoneNumber,
+        department: formData.department,
+        gender: formData.gender,
+        batch: formData.batch,
+        degree: formData.degree,
+        avatar: profileImage.startsWith('data:') ? profileImage : undefined // Only send if it's a new base64 image
+      });
+      
+      if (response.data.success) {
+        toast.success('Profile updated successfully');
+        
+        // Update local storage user data to reflect changes
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = {
+          ...currentUser,
+          fullName: formData.fullName,
+          phoneNumber: formData.phoneNumber,
+          department: formData.department,
+          gender: formData.gender,
+          batch: formData.batch,
+          degree: formData.degree,
+          avatar: response.data.user.avatar || currentUser.avatar
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        // Update the auth context
+        if (updateUser) {
+          updateUser(updatedUser);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -46,8 +121,8 @@ export const ProfilePage = () => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-        toast.success('Profile picture updated!');
+        const base64String = reader.result as string;
+        setProfileImage(base64String);
       };
       reader.readAsDataURL(file);
     }
@@ -58,10 +133,17 @@ export const ProfilePage = () => {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
         <button 
-          className={`${editing === id ? 'bg-indigo-600 text-white px-3 py-1 rounded' : 'text-indigo-600'} hover:${editing === id ? 'bg-indigo-700' : 'text-indigo-700'}`}
+          className={`${editing === id ? 'bg-indigo-600 text-white px-3 py-1 rounded' : 'text-indigo-600'} hover:${editing === id ? 'bg-indigo-700' : 'text-indigo-700'} disabled:opacity-50`}
           onClick={() => handleEditToggle(id)}
+          disabled={isLoading}
         >
-          {editing === id ? 'Save' : <Edit2 className="h-5 w-5" />}
+          {isLoading ? (
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></span>
+          ) : editing === id ? (
+            'Save'
+          ) : (
+            <Edit2 className="h-5 w-5" />
+          )}
         </button>
       </div>
       {children}
@@ -124,7 +206,24 @@ export const ProfilePage = () => {
           </div>
         </div>
 
-        <ProfileSection title="Personal Information" id="personal">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">Personal Information</h2>
+            <button 
+              className={`${editing === 'personal' ? 'bg-indigo-600 text-white px-3 py-1 rounded' : 'text-indigo-600'} hover:${editing === 'personal' ? 'bg-indigo-700' : 'text-indigo-700'} disabled:opacity-50`}
+              onClick={() => handleEditToggle('personal')}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></span>
+              ) : editing === 'personal' ? (
+                'Save'
+              ) : (
+                <Edit2 className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700">Name</label>
@@ -149,6 +248,7 @@ export const ProfilePage = () => {
                   value={formData.email}
                   onChange={handleChange}
                   className="mt-1 block w-full rounded-md border border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  disabled
                 />
               ) : (
                 <p className="mt-1 text-sm text-gray-900">{formData.email}</p>
@@ -174,7 +274,7 @@ export const ProfilePage = () => {
                 <select
                   name="gender"
                   value={formData.gender}
-                  onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
+                  onChange={handleSelectChange}
                   className="mt-1 block w-full rounded-md border border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
                 >
                   <option value="Male">Male</option>
@@ -189,13 +289,70 @@ export const ProfilePage = () => {
 
           <div className="mt-6 border-t border-gray-200 pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InfoItem icon={Building} label="Campus" value="PES College of Engineering" />
-              <InfoItem icon={GraduationCap} label="Batch" value={formData.batch} />
-              <InfoItem icon={Book} label="Department" value={formData.department} />
-              <InfoItem icon={GraduationCap} label="Degree" value={formData.degree} />
+              <div className="flex items-center space-x-3 mb-4">
+                <Building className="h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-500">Campus</p>
+                  <p className="text-sm font-medium text-gray-900">PES College of Engineering</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3 mb-4">
+                <GraduationCap className="h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-500">Batch</p>
+                  {editing === 'personal' ? (
+                    <input
+                      type="text"
+                      name="batch"
+                      value={formData.batch}
+                      onChange={handleChange}
+                      className="mt-1 block w-full rounded-md border border-gray-300 py-1 px-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-gray-900">{formData.batch}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3 mb-4">
+                <Book className="h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-500">Department</p>
+                  {editing === 'personal' ? (
+                    <input
+                      type="text"
+                      name="department"
+                      value={formData.department}
+                      onChange={handleChange}
+                      className="mt-1 block w-full rounded-md border border-gray-300 py-1 px-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-gray-900">{formData.department}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3 mb-4">
+                <GraduationCap className="h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-500">Degree</p>
+                  {editing === 'personal' ? (
+                    <input
+                      type="text"
+                      name="degree"
+                      value={formData.degree}
+                      onChange={handleChange}
+                      className="mt-1 block w-full rounded-md border border-gray-300 py-1 px-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-gray-900">{formData.degree}</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </ProfileSection>
+        </div>
 
         <div className="space-y-4">
           <Link to="/profile/academic" className="block bg-white rounded-lg shadow overflow-hidden">
@@ -250,3 +407,5 @@ export const ProfilePage = () => {
     </div>
   );
 };
+
+export default ProfilePage;

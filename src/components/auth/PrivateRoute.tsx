@@ -22,10 +22,21 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, role }) => {
     return <Navigate to="/auth/login" />;
   }
 
+  // Admin can access all routes
+  if (user.role === 'admin') {
+    // If trying to access a specific admin route but user is an admin
+    if (role === 'admin') {
+      return <>{children}</>;
+    }
+    
+    // If they're admin but trying to access a non-admin specific route
+    // Just let them through (admins can see everything)
+    return <>{children}</>;
+  }
+
+  // For non-admin users, check role-specific routes
   if (role && user.role !== role) {
-    if (user.role === 'admin') {
-      return <Navigate to="/admin/dashboard" />;
-    } else if (user.role === 'faculty') {
+    if (user.role === 'faculty') {
       return <Navigate to="/faculty/dashboard" />;
     } else {
       return <Navigate to="/dashboard" />;

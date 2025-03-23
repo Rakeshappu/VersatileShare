@@ -34,6 +34,11 @@ const resourceSchema = new mongoose.Schema({
   fileSize: Number,
   fileName: String,
   link: String,
+  category: {
+    type: String,
+    enum: ['study', 'placement', 'common'],
+    default: 'study'
+  },
   stats: {
     views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },
@@ -41,6 +46,19 @@ const resourceSchema = new mongoose.Schema({
     downloads: { type: Number, default: 0 },
     lastViewed: { type: Date, default: Date.now },
   },
+  likedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  comments: [{
+    content: { type: String, required: true },
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    createdAt: { type: Date, default: Date.now }
+  }],
   createdAt: {
     type: Date,
     default: Date.now,

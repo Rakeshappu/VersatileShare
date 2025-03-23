@@ -30,8 +30,20 @@ export const UploadWorkflow = ({
       setStep('semester-selection');
     } else if (option === 'subject-folder') {
       setStep('subject-creation');
+    } else if (option === 'common') {
+      // For common resources, skip semester selection
+      onSelectOption('direct-upload', { 
+        resourceType: 'common',
+        subject: 'Common Resources'
+      });
+    } else if (option === 'placement') {
+      // For placement resources, skip semester selection
+      onSelectOption('direct-upload', { 
+        resourceType: 'placement',
+        subject: 'Placement Resources'
+      });
     } else {
-      // For common, placement, or direct upload, pass directly to parent
+      // For direct upload, pass directly to parent
       onSelectOption(option);
     }
   };
