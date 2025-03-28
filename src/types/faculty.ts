@@ -31,6 +31,9 @@ export interface FacultyResource {
   stats: ResourceStats;
   // Add folder information
   folderId?: string;
+  // Add placement category
+  category?: string;
+  placementCategory?: string;
 }
 
 export interface UploadFormData {
@@ -42,6 +45,8 @@ export interface UploadFormData {
   file?: File;
   link?: string;
   folderId?: string; // Add folder ID for organization
+  category?: string; // Add category field
+  placementCategory?: string; // Add placement category field
 }
 
 export interface SubjectFolder {

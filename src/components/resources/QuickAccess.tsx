@@ -1,5 +1,4 @@
 
-import { useState } from 'react';
 import { Briefcase, Code, BookOpen, Book, FileText, Users, Award, Monitor } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,10 +10,10 @@ const quickAccessItems = [
     color: 'bg-purple-100 text-purple-600',
     path: '/placement',
     content: [
-      { icon: <FileText size={16} />, title: 'Resume Templates', link: '/placement?tab=resume' },
-      { icon: <Users size={16} />, title: 'Interview Questions', link: '/placement?tab=interview' },
-      { icon: <Award size={16} />, title: 'Company Profiles', link: '/placement?tab=companies' },
-      { icon: <Monitor size={16} />, title: 'Mock Interviews', link: '/placement?tab=mock' }
+      { icon: <FileText size={16} />, title: 'Resume Templates', link: '/placement' },
+      { icon: <Users size={16} />, title: 'Interview Questions', link: '/placement' },
+      { icon: <Award size={16} />, title: 'Company Profiles', link: '/placement' },
+      { icon: <Monitor size={16} />, title: 'Mock Interviews', link: '/placement' }
     ]
   },
   {
@@ -42,15 +41,16 @@ const quickAccessItems = [
 
 export const QuickAccess = () => {
   const navigate = useNavigate();
-  const [expandedItem, setExpandedItem] = useState<string | null>(null);
   
-  const handleItemClick = (path: string, title: string) => {
+  const handleItemClick = (path: string) => {
+    console.log("Navigating to:", path);
     // Always navigate directly to the path
     navigate(path);
   };
   
   const handleContentClick = (link: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log("Navigating to content:", link);
     navigate(link);
   };
   
@@ -59,10 +59,8 @@ export const QuickAccess = () => {
       {quickAccessItems.map((item) => (
         <div
           key={item.title}
-          className={`bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all cursor-pointer ${
-            expandedItem === item.title ? 'ring-2 ring-indigo-300' : ''
-          }`}
-          onClick={() => handleItemClick(item.path, item.title)}
+          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all cursor-pointer"
+          onClick={() => handleItemClick(item.path)}
         >
           <div className={`${item.color} p-3 rounded-full w-fit mb-4`}>
             {item.icon}
@@ -70,11 +68,10 @@ export const QuickAccess = () => {
           <h3 className="text-lg font-semibold text-gray-800 mb-2">{item.title}</h3>
           <p className="text-sm text-gray-600">{item.description}</p>
           
-          {/* Expanded content */}
-          {expandedItem === item.title && item.content.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-100 animate-fadeIn">
+          {item.content.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
               <ul className="space-y-2">
-                {item.content.map((contentItem, idx) => (
+                {item.content.slice(0, 2).map((contentItem, idx) => (
                   <li 
                     key={idx}
                     className="flex items-center text-sm py-1.5 px-2 hover:bg-gray-50 rounded-md transition-colors"

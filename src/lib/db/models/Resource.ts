@@ -55,10 +55,7 @@ const resourceSchema = new mongoose.Schema({
       'technical', 
       'soft-skills', 
       'general'
-    ],
-    required: function() {
-      return this.category === 'placement';
-    }
+    ]
   },
   stats: {
     views: { type: Number, default: 0 },
@@ -84,6 +81,22 @@ const resourceSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  // Track who has viewed this resource
+  viewedBy: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    timestamp: { type: Date, default: Date.now }
+  }],
+  // Track who has downloaded this resource
+  downloadedBy: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    timestamp: { type: Date, default: Date.now }
+  }],
 });
 
 // Ensure we have a model or create one

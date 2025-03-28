@@ -1,250 +1,209 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { UserRole, SignupFormData } from '../../types/auth';
+import { SignupFormData } from '../../types/auth';
 import { FormField } from './FormField';
-import { Share2, ArrowLeft, ArrowRight, GraduationCap, Users } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { GoogleLoginButton } from './GoogleLoginButton';
 
 interface SignupFormProps {
-  role: UserRole;
-  onSubmit: (data: SignupFormData) => void;
+  onSubmit: (formData: SignupFormData) => void;
+  role?: 'student' | 'faculty';
 }
 
-export const SignupForm = ({ role, onSubmit }: SignupFormProps) => {
-  const [showPassword, setShowPassword] = useState(false);
+export const SignupForm: React.FC<SignupFormProps> = ({ onSubmit, role = 'student' }) => {
   const [formData, setFormData] = useState<SignupFormData>({
-    role,
     fullName: '',
     email: '',
     password: '',
+    confirmPassword: '',
+    role: role,
     department: '',
-    phoneNumber: '',
-    semester: role === 'student' ? 1 : undefined,
-    secretNumber: role === 'faculty' ? '' : undefined,
+    usn: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
+  const [errors, setErrors] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    department: '',
+    usn: '',
+  });
+
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = { ...errors };
+
+    // Validate full name
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Full name is required';
+      isValid = false;
+    } else {
+      newErrors.fullName = '';
+    }
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+      isValid = false;
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Enter a valid email address';
+      isValid = false;
+    } else {
+      newErrors.email = '';
+    }
+
+    // Validate password
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+      isValid = false;
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+      isValid = false;
+    } else {
+      newErrors.password = '';
+    }
+
+    // Validate confirm password
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+      isValid = false;
+    } else {
+      newErrors.confirmPassword = '';
+    }
+
+    // Validate department
+    if (!formData.department?.trim()) {
+      newErrors.department = 'Department is required';
+      isValid = false;
+    } else {
+      newErrors.department = '';
+    }
+
+    // Validate USN for students
+    if (formData.role === 'student' && !formData.usn?.trim()) {
+      newErrors.usn = 'USN is required for students';
+      isValid = false;
+    } else {
+      newErrors.usn = '';
+    }
+
+    setErrors(newErrors);
+    return isValid;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const value = e.target.name === 'semester' ? parseInt(e.target.value) : e.target.value;
-    setFormData({ ...formData, [e.target.name]: value });
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
   };
 
-  const departments = [
-    { value: 'Computer Science', label: 'Computer Science' },
-    { value: 'Information Science', label: 'Information Science' },
-    { value: 'Electronics & Communication', label: 'Electronics & Communication' },
-    { value: 'Electrics', label: 'Electrics' },
-    { value: 'Mechanical', label: 'Mechanical' },
-    { value: 'Civil', label: 'Civil' }
-  ];
-
-  const semesters = Array.from({ length: 8 }, (_, i) => ({
-    value: (i + 1).toString(),
-    label: `Semester ${i + 1}`
-  }));
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { 
-        duration: 0.6,
-        when: "beforeChildren",
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { duration: 0.4 }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validateForm()) {
+      onSubmit(formData);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={cardVariants}
-        className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg"
-      >
-        <motion.div variants={itemVariants} className="text-center">
-          <motion.div 
-            className="flex items-center justify-center mb-6"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <Share2 className="h-10 w-10 text-indigo-600" />
-            <span className="ml-2 text-3xl font-bold text-indigo-600">VersatileShare</span>
-          </motion.div>
-          
-          <div className="flex items-center justify-center mb-4">
-            {role === 'student' ? (
-              <motion.div 
-                className="flex items-center justify-center p-3 bg-indigo-50 rounded-full"
-                whileHover={{ scale: 1.05 }}
-              >
-                <GraduationCap className="h-8 w-8 text-indigo-600" />
-              </motion.div>
-            ) : (
-              <motion.div 
-                className="flex items-center justify-center p-3 bg-purple-50 rounded-full" 
-                whileHover={{ scale: 1.05 }}
-              >
-                <Users className="h-8 w-8 text-purple-600" />
-              </motion.div>
-            )}
-          </div>
-          
-          <h2 className="text-2xl font-extrabold text-gray-900">
-            {role === 'student' ? 'Student Registration' : 'Faculty Registration'}
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Create your account to start sharing and accessing resources
-          </p>
-        </motion.div>
-
-        <motion.form 
-          variants={itemVariants} 
-          className="mt-8 space-y-5" 
-          onSubmit={handleSubmit}
+    <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+        Create your account
+      </h2>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <FormField
+          label="Full Name"
+          type="text"
+          name="fullName"
+          value={formData.fullName}
+          onChange={handleChange}
+          error={errors.fullName}
+          placeholder="Enter your full name"
+          required
+        />
+        
+        <FormField
+          label="Email"
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          error={errors.email}
+          placeholder="Enter your email"
+          required
+        />
+        
+        <FormField
+          label="Department"
+          type="text"
+          name="department"
+          value={formData.department}
+          onChange={handleChange}
+          error={errors.department}
+          placeholder="Enter your department"
+          required
+        />
+        
+        {formData.role === 'student' && (
+          <FormField
+            label="USN"
+            type="text"
+            name="usn"
+            value={formData.usn}
+            onChange={handleChange}
+            error={errors.usn}
+            placeholder="Enter your USN"
+            required
+          />
+        )}
+        
+        <FormField
+          label="Password"
+          type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          error={errors.password}
+          placeholder="Create a password"
+          required
+        />
+        
+        <FormField
+          label="Confirm Password"
+          type="password"
+          name="confirmPassword"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          error={errors.confirmPassword}
+          placeholder="Confirm your password"
+          required
+        />
+        
+        <button
+          type="submit"
+          className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75 transition-colors"
         >
-          <div className="rounded-md shadow-sm space-y-4">
-            <motion.div variants={itemVariants}>
-              <FormField
-                label="Full Name"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="Enter your full name"
-              />
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <FormField
-                label="Email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Enter your email address"
-              />
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <FormField
-                label="Department"
-                name="department"
-                type="select"
-                value={formData.department}
-                onChange={handleChange}
-                options={departments}
-              />
-            </motion.div>
-
-            {role === 'student' && (
-              <motion.div variants={itemVariants}>
-                <FormField
-                  label="Semester"
-                  name="semester"
-                  type="select"
-                  value={formData.semester?.toString() || '1'}
-                  onChange={handleChange}
-                  options={semesters}
-                />
-              </motion.div>
-            )}
-
-            {role === 'faculty' && (
-              <motion.div variants={itemVariants}>
-                <FormField
-                  label="Faculty Secret Number"
-                  name="secretNumber"
-                  value={formData.secretNumber || ''}
-                  onChange={handleChange}
-                  placeholder="Enter faculty secret number"
-                />
-              </motion.div>
-            )}
-
-            <motion.div variants={itemVariants}>
-              <FormField
-                label="Phone Number"
-                name="phoneNumber"
-                type="tel"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                placeholder="Enter your phone number"
-              />
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <FormField
-                label="Password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Create a strong password"
-                showPassword={showPassword}
-                onTogglePassword={() => setShowPassword(!showPassword)}
-              />
-            </motion.div>
+          Sign Up
+        </button>
+      </form>
+      
+      <div className="mt-6">
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
           </div>
-
-          <motion.div
-            variants={itemVariants}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full"
-          >
-            <button
-              type="submit"
-              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                role === 'student' 
-                  ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500' 
-                  : 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors`}
-            >
-              <span className="absolute right-3 inset-y-0 flex items-center">
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </span>
-              Create Account
-            </button>
-          </motion.div>
-
-          <motion.div 
-            variants={itemVariants}
-            className="flex justify-between items-center pt-2"
-          >
-            <Link 
-              to="/auth/role"
-              className="flex items-center font-medium text-gray-600 hover:text-gray-500 transition-colors text-sm"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              <span>Back to Role Selection</span>
-            </Link>
-            
-            <Link 
-              to="/auth/login"
-              className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors text-sm"
-            >
-              Have an account? Login
-            </Link>
-          </motion.div>
-        </motion.form>
-      </motion.div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or continue with</span>
+          </div>
+        </div>
+        
+        <div className="mt-6">
+          <GoogleLoginButton />
+        </div>
+      </div>
     </div>
   );
 };

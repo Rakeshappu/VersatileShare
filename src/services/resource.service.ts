@@ -13,6 +13,7 @@ interface ResourceQuery {
   search?: string;
   limit?: number;
   page?: number;
+  category?: string;
 }
 
 /**
@@ -34,6 +35,7 @@ export const getResources = async (query: ResourceQuery = {}) => {
     if (query.search) queryString.append('search', query.search);
     if (query.limit) queryString.append('limit', query.limit.toString());
     if (query.page) queryString.append('page', query.page.toString());
+    if (query.category) queryString.append('category', query.category);
     
     // Try to get from cache first if Redis is configured
     if (!redisConfig.useMocks) {
@@ -225,7 +227,33 @@ export const getResourceById = async (resourceId: string) => {
  */
 export const deleteResource = async (resourceId: string) => {
   try {
-    const response = await api.delete(API_ROUTES.RESOURCES.DELETE(resourceId));
+    console.log('Deleting resource with ID:', resourceId);
+    
+    // Use direct fetch API instead of axios to avoid React Router context issues in SSR
+    const token = localStorage.getItem('token');
+    const response = await fetch(`/api/resources/${resourceId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Delete resource error response:', errorData);
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      console.log('Response was not JSON, returning simple success object');
+      data = { success: true };
+    }
+    
+    console.log('Resource deletion response:', data);
     
     // Clear cache if Redis is configured
     if (!redisConfig.useMocks) {
@@ -241,7 +269,7 @@ export const deleteResource = async (resourceId: string) => {
       });
     }
     
-    return response.data;
+    return data;
   } catch (error) {
     console.error('Failed to delete resource:', error);
     throw error;

@@ -15,6 +15,7 @@ import { DownloadsPage } from './pages/storage/DownloadsPage';
 import { TrashPage as StudentTrashPage } from './pages/storage/TrashPage';
 import { SettingsPage as StudentSettingsPage } from './pages/settings/SettingsPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
+import PlacementResources from './pages/placement/PlacementResources';
 
 // Import faculty pages
 import { AnalyticsPage } from './pages/faculty/AnalyticsPage';
@@ -24,7 +25,6 @@ import { TrashPage as FacultyTrashPage } from './pages/faculty/TrashPage';
 import { SettingsPage as FacultySettingsPage } from './pages/faculty/SettingsPage';
 
 // Faculty upload components
-import { ResourceUpload } from './components/faculty/ResourceUpload';
 import { UploadWorkflow } from './components/faculty/UploadWorkflow';
 
 function App() {
@@ -73,6 +73,20 @@ function App() {
                     <div className="flex-1">
                       <Header />
                       <StudyMaterialsPage />
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/placement"
+              element={
+                <PrivateRoute role="student">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <PlacementResources />
                     </div>
                   </div>
                 </PrivateRoute>

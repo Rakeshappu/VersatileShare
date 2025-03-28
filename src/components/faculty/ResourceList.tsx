@@ -3,11 +3,14 @@ import { useState } from 'react';
 import { FileText, Video, Link as LinkIcon, BarChart2, Eye, ThumbsUp, MessageSquare, Trash2 } from 'lucide-react';
 import { FacultyResource } from '../../types/faculty';
 import { formatDate } from '../../utils/dateUtils';
+import { toast } from 'react-hot-toast';
+import { deleteResource } from '../../services/resource.service';
 
 interface ResourceListProps {
   resources: FacultyResource[];
   onViewAnalytics: (resourceId: string) => void;
   showDeleteButton?: boolean;
+  onResourceDeleted?: () => void;
 }
 
 type FilterOption = 'all' | 'document' | 'video' | 'note' | 'link';
@@ -19,10 +22,12 @@ declare global {
   }
 }
 
-export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = false }: ResourceListProps) => {
+export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = false, onResourceDeleted }: ResourceListProps) => {
   const [filterType, setFilterType] = useState<FilterOption>('all');
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [selectedSemester, setSelectedSemester] = useState<number | 'all'>('all');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const getIcon = (type: FacultyResource['type']) => {
     switch (type) {
@@ -35,14 +40,48 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
     }
   };
 
-  const handleDeleteResource = (resourceId: string) => {
-    // Update the shared resources to reflect deletion
-    if (window.sharedResources) {
-      window.sharedResources = window.sharedResources.filter(r => r.id !== resourceId);
+  const handleDeleteResource = async (resourceId: string) => {
+    if (!confirm('Are you sure you want to delete this resource?')) {
+      return;
     }
     
-    // Show a toast or notification
-    alert('Resource deleted successfully');
+    try {
+      setIsDeleting(true);
+      setDeletingId(resourceId);
+      console.log('Deleting resource with ID:', resourceId);
+      
+      // Use direct fetch API to avoid React Router DOM context issues
+      const response = await fetch(`/api/resources/${resourceId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      // Update the shared resources to reflect deletion
+      if (window.sharedResources) {
+        window.sharedResources = window.sharedResources.filter(r => r.id !== resourceId);
+      }
+      
+      // Show success message
+      toast.success('Resource deleted successfully');
+      
+      // Notify parent component if needed
+      if (onResourceDeleted) {
+        onResourceDeleted();
+      }
+    } catch (error) {
+      console.error('Error deleting resource:', error);
+      toast.error('Failed to delete resource');
+    } finally {
+      setIsDeleting(false);
+      setDeletingId(null);
+    }
   };
 
   const filteredResources = resources
@@ -137,9 +176,14 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
                   {showDeleteButton && (
                     <button
                       onClick={() => handleDeleteResource(resource.id)}
-                      className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+                      disabled={isDeleting && deletingId === resource.id}
+                      className="flex items-center space-x-1 text-red-600 hover:text-red-700 disabled:opacity-50"
                     >
-                      <Trash2 className="h-5 w-5" />
+                      {isDeleting && deletingId === resource.id ? (
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
+                      ) : (
+                        <Trash2 className="h-5 w-5" />
+                      )}
                       <span className="text-sm">Delete</span>
                     </button>
                   )}

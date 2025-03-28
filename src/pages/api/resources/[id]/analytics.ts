@@ -36,8 +36,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Find resource with populated likedBy and comments.author fields to get detailed user info
     const resource = await Resource.findById(id)
-      .populate('likedBy', 'fullName email avatar department role')
-      .populate('comments.author', 'fullName email avatar department role');
+      .populate('likedBy', 'fullName email avatar department role usn')
+      .populate('comments.author', 'fullName email avatar department role usn')
+      .populate('viewedBy.user', 'fullName email department role usn')
+      .populate('downloadedBy.user', 'fullName email department role usn');
     
     if (!resource) {
       return res.status(404).json({ error: 'Resource not found' });
@@ -54,14 +56,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
     
+    // Prepare detailed likes with timestamp
+    const likedBy = resource.likedBy.map((user: any) => {
+      // Find when this user liked the resource by checking viewedBy
+      const likeTimestamp = resource.viewedBy?.find((view: any) => 
+        view.user && view.user._id.toString() === user._id.toString()
+      )?.timestamp || new Date();
+      
+      return {
+        ...user._doc,
+        likedAt: likeTimestamp
+      };
+    });
+    
     // Process analytics data
     const analyticsData = {
       views: resource.stats.views || 0,
       downloads: resource.stats.downloads || 0,
       likes: resource.stats.likes || 0,
-      comments: resource.stats.comments || 0,
-      likedBy: resource.likedBy || [],
+      comments: resource.comments?.length || 0,
+      likedBy: likedBy || [],
       commentDetails: resource.comments || [],
+      viewedBy: resource.viewedBy || [],
+      downloadedBy: resource.downloadedBy || [],
       
       // Sample data for department distribution - in real app, this would come from actual data
       departmentDistribution: [
@@ -72,7 +89,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ],
       
       // Unique viewers estimation
-      uniqueViewers: Math.floor(resource.stats.views * 0.7) || 0,
+      uniqueViewers: resource.viewedBy?.length || Math.floor(resource.stats.views * 0.7) || 0,
+      
+      // Daily views - sample data
+      dailyViews: [
+        { date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(), count: Math.floor(Math.random() * 10) },
+        { date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), count: Math.floor(Math.random() * 15) },
+        { date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), count: Math.floor(Math.random() * 8) },
+        { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), count: Math.floor(Math.random() * 12) },
+        { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), count: Math.floor(Math.random() * 20) },
+        { date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), count: Math.floor(Math.random() * 15) },
+        { date: new Date().toISOString(), count: Math.floor(Math.random() * 10) },
+      ],
+      
+      topDepartments: [
+        { name: 'Computer Science', count: Math.floor(Math.random() * 30) + 20 },
+        { name: 'Information Science', count: Math.floor(Math.random() * 20) + 15 },
+        { name: 'Electronics', count: Math.floor(Math.random() * 15) + 10 },
+        { name: 'Mechanical', count: Math.floor(Math.random() * 10) + 5 },
+      ],
     };
     
     return res.status(200).json(analyticsData);

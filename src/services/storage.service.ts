@@ -1,6 +1,6 @@
 
 import api from './api';
-import { getPresignedDownloadUrl, getKeyFromUrl } from '../lib/storage/s3';
+import { getPresignedDownloadUrl, getKeyFromUrl, deleteFileFromS3 } from '../lib/storage/s3';
 
 /**
  * Upload a file to storage (AWS S3)
@@ -76,13 +76,53 @@ const uploadLargeFile = async (file: File, folder: string = 'uploads') => {
  */
 export const deleteFile = async (fileUrl: string) => {
   try {
+    if (!fileUrl) {
+      console.warn('No file URL provided for deletion');
+      return null;
+    }
+    
     // Extract key from the file URL
     const fileKey = getKeyFromUrl(fileUrl);
     
+    console.log('Deleting file with key:', fileKey);
+    
+    // For S3 files, delete directly
+    if (fileUrl.includes('amazonaws.com')) {
+      await deleteFileFromS3(fileKey);
+      console.log('S3 file deleted successfully:', fileKey);
+      return { success: true, message: 'File deleted from S3' };
+    }
+    
+    // For local files in public/uploads
+    if (fileUrl.startsWith('/uploads/')) {
+      // Delete from the server
+      console.log('Deleting local file:', fileUrl);
+      const response = await api.delete('/api/upload', {
+        data: { fileUrl: fileUrl }
+      });
+      
+      console.log('Local file deletion response:', response.data);
+      return response.data;
+    }
+    
+    // For absolute URLs
+    if (fileUrl.startsWith('http')) {
+      console.log('Deleting file with absolute URL:', fileUrl);
+      const response = await api.delete('/api/upload', {
+        data: { fileUrl: fileUrl }
+      });
+      
+      console.log('File deletion response:', response.data);
+      return response.data;
+    }
+    
+    // For other URLs, try the API with the extracted key
+    console.log('Attempting to delete file with extracted key:', fileKey);
     const response = await api.delete('/api/upload', {
       data: { fileKey }
     });
     
+    console.log('File deletion response with key:', response.data);
     return response.data;
   } catch (error) {
     console.error('Failed to delete file:', error);

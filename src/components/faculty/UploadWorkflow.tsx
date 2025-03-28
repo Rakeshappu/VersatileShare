@@ -5,6 +5,8 @@ import { UploadOptionSelection } from './upload/UploadOptionSelection';
 import { SemesterSelection } from './upload/SemesterSelection';
 import { SubjectCreationForm } from './upload/SubjectCreationForm';
 import { PlacementCategorySelection } from './upload/PlacementCategorySelection';
+import { ResourceUpload } from './ResourceUpload';
+import { toast } from 'react-hot-toast';
 
 type UploadOption = 'semester' | 'common' | 'placement' | 'subject-folder' | 'direct-upload';
 type SemesterNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -20,8 +22,9 @@ export const UploadWorkflow = ({
   onCancel,
   showAvailableSubjects = false
 }: UploadWorkflowProps) => {
-  const [step, setStep] = useState<'initial' | 'semester-selection' | 'subject-creation' | 'placement-category'>('initial');
+  const [step, setStep] = useState<'initial' | 'semester-selection' | 'subject-creation' | 'placement-category' | 'placement-upload'>('initial');
   const [selectedSemester, setSelectedSemester] = useState<SemesterNumber | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<{id: string, name: string} | null>(null);
   
   // Get existing subjects
   const existingSubjects: SubjectFolder[] = window.subjectFolders || [];
@@ -38,7 +41,8 @@ export const UploadWorkflow = ({
       // For common resources, skip semester selection
       onSelectOption('direct-upload', { 
         resourceType: 'common',
-        subject: 'Common Resources'
+        subject: 'Common Resources',
+        category: 'common'
       });
     } else {
       // For direct upload, pass directly to parent
@@ -52,14 +56,10 @@ export const UploadWorkflow = ({
   };
 
   const handlePlacementCategorySelect = (categoryId: string, categoryName: string) => {
-    // For placement resources, go directly to upload without asking for semester
-    onSelectOption('direct-upload', { 
-      resourceType: 'placement',
-      subject: `Placement - ${categoryName}`,
-      category: 'placement',
-      semester: 0, // Semester 0 means all semesters (placement is common)
-      categoryId
-    });
+    // Store the selected category and proceed to upload form
+    console.log('Selected placement category:', categoryId, categoryName);
+    setSelectedCategory({ id: categoryId, name: categoryName });
+    setStep('placement-upload');
   };
 
   const handleCreateSubjectFolders = (newSubjects: SubjectData[]) => {
@@ -67,6 +67,29 @@ export const UploadWorkflow = ({
       semester: selectedSemester, 
       subjects: newSubjects 
     });
+  };
+
+  const handlePlacementUpload = async (data: any) => {
+    try {
+      console.log('Submitting placement resource:', data);
+      if (!selectedCategory) {
+        toast.error('Please select a placement category first');
+        return;
+      }
+      
+      // Pass directly to parent with placement category data
+      onSelectOption('direct-upload', { 
+        resourceType: 'placement',
+        subject: `Placement - ${selectedCategory?.name}`,
+        category: 'placement',
+        semester: 0, // Semester 0 means all semesters (placement is common)
+        placementCategory: selectedCategory?.id,
+        ...data
+      });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload placement resource');
+    }
   };
 
   // Filter existing subjects for the selected semester
@@ -108,6 +131,25 @@ export const UploadWorkflow = ({
           onCategorySelect={handlePlacementCategorySelect}
           onBack={() => setStep('initial')}
         />
+      )}
+
+      {step === 'placement-upload' && selectedCategory && (
+        <div>
+          <button
+            onClick={() => setStep('placement-category')}
+            className="mb-4 text-indigo-600 hover:text-indigo-700 flex items-center"
+          >
+            ← Back to Categories
+          </button>
+          <ResourceUpload 
+            onUpload={handlePlacementUpload}
+            initialSubject={`Placement - ${selectedCategory.name}`}
+            initialSemester={0}
+            initialCategory="placement"
+            isPlacementResource={true}
+            placementCategory={selectedCategory.id}
+          />
+        </div>
       )}
     </div>
   );
