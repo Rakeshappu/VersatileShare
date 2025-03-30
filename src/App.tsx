@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Header } from './components/layout/Header';
@@ -176,6 +175,13 @@ function App() {
                         <UploadWorkflow 
                           onSelectOption={(option, data) => {
                             console.log("Selected option:", option, data);
+                            if (option === 'direct-upload' && data) {
+                              // Handle the direct upload with the provided data
+                              if (data.resourceType === 'placement') {
+                                console.log("Handling placement resource upload:", data);
+                                // Additional logic for placement resource could go here
+                              }
+                            }
                           }} 
                           onCancel={() => {
                             // Navigate back to faculty dashboard

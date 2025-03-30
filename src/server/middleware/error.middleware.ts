@@ -22,9 +22,42 @@ export const errorHandler = (err: any, _req: Request, res: Response, _next: Next
   )) {
     console.log('Handling React Router DOM context error');
     return res.status(200).json({ 
-      error: false,
+      success: true,
       message: 'Client-side rendering required',
       data: null
+    });
+  }
+  
+  // Handle file upload errors
+  if (err.message && (
+    err.message.includes('File upload') ||
+    err.message.includes('multipart/form-data')
+  )) {
+    console.log('Handling file upload error');
+    return res.status(400).json({
+      error: 'File upload failed. Please check your file and try again.',
+      details: err.message
+    });
+  }
+  
+  // Handle MongoDB ObjectId cast errors (common when using IDs incorrectly)
+  if (err.name === 'CastError' && err.kind === 'ObjectId') {
+    console.log('Handling ObjectId cast error');
+    return res.status(400).json({
+      error: 'Invalid ID format',
+      details: err.message
+    });
+  }
+  
+  // Handle placement resource specific errors
+  if (err.message && (
+    err.message.includes('placement') ||
+    err.message.includes('category')
+  )) {
+    console.log('Handling placement resource error');
+    return res.status(400).json({
+      error: 'Invalid placement resource data. Please check the category and try again.',
+      details: err.message
     });
   }
   

@@ -41,62 +41,77 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
   };
 
   const handleDeleteResource = async (resourceId: string) => {
-    if (!confirm('Are you sure you want to delete this resource?')) {
+    if (!resourceId) {
+      toast.error('Invalid resource ID');
       return;
     }
     
-    try {
-      setIsDeleting(true);
-      setDeletingId(resourceId);
-      console.log('Deleting resource with ID:', resourceId);
-      
-      // Use direct fetch API to avoid React Router DOM context issues
-      const response = await fetch(`/api/resources/${resourceId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+    if (window.confirm('Are you sure you want to delete this resource?')) {
+      try {
+        setIsDeleting(true);
+        setDeletingId(resourceId);
+        console.log('Deleting resource with ID:', resourceId);
+        
+        // Call the API directly with fetch for more reliable execution
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Authentication required');
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        
+        const response = await fetch(`/api/resources/${resourceId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Delete failed with status: ${response.status}`);
+        }
+        
+        console.log('Delete successful');
+        
+        // Update the shared resources to reflect deletion - ensure we check both ID formats
+        if (window.sharedResources) {
+          window.sharedResources = window.sharedResources.filter(r => 
+            (r.id !== resourceId) && (r._id !== resourceId)
+          );
+        }
+        
+        // Show success message
+        toast.success('Resource deleted successfully');
+        
+        // Notify parent component if needed
+        if (onResourceDeleted) {
+          onResourceDeleted();
+        }
+      } catch (error) {
+        console.error('Error deleting resource:', error);
+        toast.error('Failed to delete resource');
+      } finally {
+        setIsDeleting(false);
+        setDeletingId(null);
       }
-      
-      // Update the shared resources to reflect deletion
-      if (window.sharedResources) {
-        window.sharedResources = window.sharedResources.filter(r => r.id !== resourceId);
-      }
-      
-      // Show success message
-      toast.success('Resource deleted successfully');
-      
-      // Notify parent component if needed
-      if (onResourceDeleted) {
-        onResourceDeleted();
-      }
-    } catch (error) {
-      console.error('Error deleting resource:', error);
-      toast.error('Failed to delete resource');
-    } finally {
-      setIsDeleting(false);
-      setDeletingId(null);
     }
   };
 
+  // Define filteredResources here
   const filteredResources = resources
     .filter((resource) => filterType === 'all' || resource.type === filterType)
-    .filter((resource) => selectedSemester === 'all' || resource.semester === selectedSemester)
+    .filter((resource) => selectedSemester === 'all' || resource.semester === selectedSemester || 
+      (typeof resource.semester === 'string' && parseInt(resource.semester) === selectedSemester))
     .sort((a, b) => {
       switch (sortBy) {
         case 'views':
-          return b.stats.views - a.stats.views;
+          return (b.stats?.views || 0) - (a.stats?.views || 0);
         case 'likes':
-          return b.stats.likes - a.stats.likes;
+          return (b.stats?.likes || 0) - (a.stats?.likes || 0);
         case 'comments':
-          return b.stats.comments - a.stats.comments;
+          return (b.stats?.comments || 0) - (a.stats?.comments || 0);
         default:
-          return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+          return new Date(b.uploadDate || b.createdAt || Date.now()).getTime() - 
+                 new Date(a.uploadDate || a.createdAt || Date.now()).getTime();
       }
     });
 
@@ -108,7 +123,7 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
         <div className="flex flex-wrap gap-4">
           <select
             className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-            value={selectedSemester}
+            value={selectedSemester === 'all' ? 'all' : selectedSemester.toString()}
             onChange={(e) => setSelectedSemester(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
           >
             <option value="all">All Semesters</option>
@@ -150,7 +165,7 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
         <div className="space-y-4">
           {filteredResources.map((resource) => (
             <div
-              key={resource.id}
+              key={resource.id || resource._id}
               className="border rounded-lg p-4 hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between">
@@ -168,18 +183,19 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
                     <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
                       <span>Semester {resource.semester}</span>
                       <span>{resource.subject}</span>
-                      <span>{formatDate(resource.uploadDate)}</span>
+                      <span>{formatDate(resource.uploadDate || resource.createdAt)}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
                   {showDeleteButton && (
                     <button
-                      onClick={() => handleDeleteResource(resource.id)}
-                      disabled={isDeleting && deletingId === resource.id}
-                      className="flex items-center space-x-1 text-red-600 hover:text-red-700 disabled:opacity-50"
+                      onClick={() => handleDeleteResource(resource.id || resource._id || '')}
+                      disabled={isDeleting && deletingId === (resource.id || resource._id)}
+                      className="flex items-center space-x-1 text-red-600 hover:text-red-700 disabled:opacity-50 cursor-pointer"
+                      type="button"
                     >
-                      {isDeleting && deletingId === resource.id ? (
+                      {isDeleting && deletingId === (resource.id || resource._id) ? (
                         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
                       ) : (
                         <Trash2 className="h-5 w-5" />
@@ -188,8 +204,9 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
                     </button>
                   )}
                   <button
-                    onClick={() => onViewAnalytics(resource.id)}
-                    className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700"
+                    onClick={() => onViewAnalytics(resource.id || resource._id || '')}
+                    className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                  type="button"
                   >
                     <BarChart2 className="h-5 w-5" />
                     <span className="text-sm">Analytics</span>
@@ -200,15 +217,15 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
               <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
                 <div className="flex items-center space-x-1">
                   <Eye className="h-4 w-4" />
-                  <span>{resource.stats.views} views</span>
+                  <span>{resource.stats?.views || 0} views</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <ThumbsUp className="h-4 w-4" />
-                  <span>{resource.stats.likes} likes</span>
+                  <span>{resource.stats?.likes || 0} likes</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <MessageSquare className="h-4 w-4" />
-                  <span>{resource.stats.comments} comments</span>
+                  <span>{resource.stats?.comments || 0} comments</span>
                 </div>
               </div>
             </div>

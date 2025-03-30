@@ -24,25 +24,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // For GET requests, return comments for the resource
     if (req.method === 'GET') {
       try {
-        // We'd ideally have a Comment model, but for now we can simulate comments
-        // In a real app, you would fetch comments from a Comments collection
+        // Find the resource and populate the comments
+        const resource = await Resource.findById(id)
+          .populate({
+            path: 'comments.author',
+            select: 'fullName email avatar department role usn',
+          });
         
-        // Simulate comments for demonstration
-        const commentsData = Array.from({ length: 5 }, (_, i) => ({
-          _id: new mongoose.Types.ObjectId().toString(),
-          resourceId: id,
-          content: `This is a sample comment ${i + 1} for this resource. Very helpful!`,
-          author: {
+        if (!resource) {
+          return res.status(404).json({ error: 'Resource not found' });
+        }
+        
+        // If resource doesn't have comments or they're empty, provide sample data
+        let comments = resource.comments || [];
+        
+        if (!comments.length) {
+          // Simulate comments for demonstration
+          comments = Array.from({ length: 5 }, (_, i) => ({
             _id: new mongoose.Types.ObjectId().toString(),
-            fullName: `User ${i + 1}`,
-            email: `user${i + 1}@example.com`
-          },
-          createdAt: new Date(Date.now() - i * 3600000).toISOString()
-        }));
+            resourceId: id,
+            content: `This is a sample comment ${i + 1} for this resource. Very helpful!`,
+            author: {
+              _id: new mongoose.Types.ObjectId().toString(),
+              fullName: `User ${i + 1}`,
+              email: `user${i + 1}@example.com`,
+              avatar: '',
+              department: `Department ${i % 3 + 1}`,
+              role: 'student'
+            },
+            createdAt: new Date(Date.now() - i * 3600000).toISOString()
+          }));
+        }
         
         return res.status(200).json({
           success: true,
-          comments: commentsData
+          comments: comments
         });
       } catch (error) {
         console.error('Error fetching comments:', error);
@@ -81,28 +97,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(404).json({ error: 'Resource not found' });
         }
         
+        // Add the comment to the resource
+        const newComment = {
+          content,
+          author: user._id,
+          createdAt: new Date()
+        };
+        
+        if (!resource.comments) {
+          resource.comments = [];
+        }
+        
+        resource.comments.push(newComment);
         resource.stats.comments += 1;
         await resource.save();
         
-        // In a real app, you would create a new comment in the Comments collection
-        // For now, just return a success response with the new comment
+        // Return the populated comment
+        const populatedResource = await Resource.findById(id)
+          .populate({
+            path: 'comments.author',
+            select: 'fullName email avatar department role',
+            match: { _id: user._id }
+          });
         
-        const newComment = {
-          _id: new mongoose.Types.ObjectId().toString(),
-          resourceId: id,
-          content,
-          author: {
-            _id: user._id,
-            fullName: user.fullName,
-            email: user.email
-          },
-          createdAt: new Date().toISOString()
-        };
+        const addedComment = populatedResource?.comments[populatedResource.comments.length - 1];
         
         return res.status(201).json({
           success: true,
           message: 'Comment added successfully',
-          comment: newComment
+          comment: addedComment
         });
       } catch (error) {
         console.error('Error adding comment:', error);

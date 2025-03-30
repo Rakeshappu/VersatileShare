@@ -5,6 +5,8 @@ import { Resource } from '../../../../lib/db/models/Resource';
 import { verifyToken } from '../../../../lib/auth/jwt';
 import { runCorsMiddleware } from '../../_middleware';
 import { getErrorMessage } from '../../../../utils/errorUtils';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -13,21 +15,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Connect to the database
     await connectDB();
-    
+
     const { id } = req.query;
     
-    if (!id || typeof id !== 'string') {
-      return res.status(400).json({ error: 'Resource ID is required' });
+    if (!id || Array.isArray(id)) {
+      return res.status(400).json({ error: 'Invalid resource ID' });
     }
     
     switch (req.method) {
       case 'GET':
-        return getResource(req, res, id);
-      case 'PUT':
-      case 'PATCH':
-        return updateResource(req, res, id);
+        return getResourceById(id, res);
       case 'DELETE':
-        return deleteResource(req, res, id);
+        return deleteResource(id, req, res);
+      case 'PUT':
+        return updateResource(id, req, res);
       default:
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -37,19 +38,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function getResource(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function getResourceById(id: string, res: NextApiResponse) {
   try {
     const resource = await Resource.findById(id)
-      .populate('uploadedBy', 'fullName');
-      
+      .populate('uploadedBy', 'fullName')
+      .lean();
+    
     if (!resource) {
       return res.status(404).json({ error: 'Resource not found' });
     }
     
-    // Increment view count
-    resource.stats.views += 1;
-    resource.stats.lastViewed = new Date();
-    await resource.save();
+    // Update view count
+    await Resource.findByIdAndUpdate(id, { $inc: { 'stats.views': 1 } });
     
     return res.status(200).json({ resource });
   } catch (error) {
@@ -58,76 +58,61 @@ async function getResource(req: NextApiRequest, res: NextApiResponse, id: string
   }
 }
 
-async function updateResource(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function deleteResource(id: string, req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Get user from token (if available)
-    let userId = null;
-    const authHeader = req.headers.authorization;
+    console.log(`Deleting resource with ID: ${id}`);
     
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.split(' ')[1];
-        const userData = verifyToken(token);
-        userId = userData.userId;
-      } catch (error) {
-        return res.status(401).json({ error: 'Invalid token' });
-      }
+    // Validate authentication
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
     
+    try {
+      const token = authHeader.split(' ')[1];
+      verifyToken(token);
+    } catch (error) {
+      return res.status(401).json({ error: 'Invalid authentication token' });
+    }
+    
+    // Find the resource
     const resource = await Resource.findById(id);
     
     if (!resource) {
       return res.status(404).json({ error: 'Resource not found' });
     }
     
-    // Only creator or admin can update
-    if (resource.uploadedBy && resource.uploadedBy.toString() !== userId) {
-      return res.status(403).json({ error: 'Not authorized to update this resource' });
+    // If resource has a file, delete it from the filesystem
+    if (resource.fileUrl && resource.fileUrl.startsWith('/uploads/')) {
+      try {
+        const filePath = path.join(process.cwd(), 'public', resource.fileUrl);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`Deleted file: ${filePath}`);
+        }
+      } catch (fileError) {
+        console.error('Error deleting file:', fileError);
+        // Continue with resource deletion even if file deletion fails
+      }
     }
     
-    // Update fields
-    const allowedUpdates = ['title', 'description'];
-    const updates = req.body;
+    // Delete the resource from the database
+    await Resource.findByIdAndDelete(id);
+    console.log(`Resource deleted successfully: ${id}`);
     
-    Object.keys(updates).forEach((key) => {
-      if (allowedUpdates.includes(key)) {
-        resource[key] = updates[key];
-      }
-    });
-    
-    await resource.save();
-    
-    return res.status(200).json({ 
-      resource,
-      message: 'Resource updated successfully'
-    });
+    return res.status(200).json({ success: true, message: 'Resource deleted successfully' });
   } catch (error) {
-    console.error('Error updating resource:', error);
+    console.error('Error deleting resource:', error);
     return res.status(500).json({ error: getErrorMessage(error) });
   }
 }
 
-async function deleteResource(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function updateResource(id: string, req: NextApiRequest, res: NextApiResponse) {
   try {
-    console.log(`Attempting to delete resource with ID: ${id}`);
-    
-    // Allow deletion without authentication for development purposes
-    // In production, you'd want to check user permissions
-    
-    const resource = await Resource.findById(id);
-    
-    if (!resource) {
-      return res.status(404).json({ error: 'Resource not found' });
-    }
-    
-    await Resource.findByIdAndDelete(id);
-    
-    return res.status(200).json({ 
-      success: true,
-      message: 'Resource deleted successfully'
-    });
+    // Implementation for updating resource
+    return res.status(501).json({ error: 'Not implemented yet' });
   } catch (error) {
-    console.error('Error deleting resource:', error);
+    console.error('Error updating resource:', error);
     return res.status(500).json({ error: getErrorMessage(error) });
   }
 }

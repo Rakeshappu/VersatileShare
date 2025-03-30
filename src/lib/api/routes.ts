@@ -1,46 +1,44 @@
-//src\lib\api\routes.ts
 export const API_ROUTES = {
   AUTH: {
-    SIGNUP: '/api/auth/signup', 
-    LOGIN: '/api/auth/login',    
-    VERIFY_EMAIL: '/api/auth/verify-email',
-    RESEND_VERIFICATION: '/api/auth/resend-verification',
-    GOOGLE: '/api/auth/google',
+    LOGIN: '/api/auth/login',
+    REGISTER: '/api/auth/signup',
     ME: '/api/auth/me',
-    VERIFY_OTP: '/api/auth/verify-otp',
-    SEND_OTP: '/api/auth/send-otp',
+    LOGOUT: '/api/auth/logout',
+    REFRESH: '/api/auth/refresh-token',
   },
-  
+  USER: {
+    PROFILE: '/api/user/profile',
+    ACTIVITY: '/api/user/activity',
+    SEARCH_HISTORY: '/api/user/search-history',
+    NOTIFICATIONS: '/api/user/notifications',
+    PASSWORD: '/api/user/password',
+    SECURITY: '/api/user/security',
+  },
   RESOURCES: {
     LIST: '/api/resources',
+    FACULTY: '/api/resources/faculty',
     CREATE: '/api/resources',
+    PLACEMENT: '/api/resources/placement',
     GET: (id: string) => `/api/resources/${id}`,
     UPDATE: (id: string) => `/api/resources/${id}`,
     DELETE: (id: string) => `/api/resources/${id}`,
     STATS: '/api/resources/stats',
-    SEARCH: '/api/resources/search',
-    BY_SEMESTER: '/api/resources/by-semester',
-    BY_SUBJECT: '/api/resources/by-subject',
+    LIKE: (id: string) => `/api/resources/${id}/like`,
+    LIKE_STATUS: (id: string) => `/api/resources/${id}/like-status`,
+    COMMENTS: (id: string) => `/api/resources/${id}/comments`,
+    ANALYTICS: (id: string) => `/api/resources/${id}/analytics`,
   },
-  
   STORAGE: {
-    UPLOAD: '/api/upload',
     PRESIGNED: '/api/upload/presigned',
-    DOWNLOAD: (fileId: string) => `/api/upload/download/${fileId}`,
-    DELETE: '/api/upload',
-    LOCAL: '/api/upload/local',
   },
-  
-  USER: {
-    PROFILE: '/api/user/profile',
-    UPDATE: '/api/user/profile',
-    PREFERENCES: '/api/user/preferences',
-    ACTIVITY: '/api/user/activity',
+  SEARCH: {
+    QUERY: '/api/search',
   },
-  
+  SUBJECT_FOLDERS: {
+    LIST: '/api/subject-folders',
+    CREATE: '/api/subject-folders',
+  },
   SYSTEM: {
-    HEALTH: '/api/health',
-    DB_STATUS: '/api/db/status',
-    SERVICES_STATUS: '/api/system/services-status'
-  }
-} as const;
+    SERVICES_STATUS: '/api/system/services-status',
+  },
+};

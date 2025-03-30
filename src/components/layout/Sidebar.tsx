@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -70,7 +69,6 @@ export const Sidebar = () => {
       <SidebarLink icon={<FileText />} text="Study Materials" path="/study-materials" active={isActive('/study-materials')} />
       <SidebarLink icon={<Star />} text="Starred" path="/starred" active={isActive('/starred')} />
       <SidebarLink icon={<Download />} text="Downloads" path="/downloads" active={isActive('/downloads')} />
-      <SidebarLink icon={<Trash />} text="Trash" path="/trash" active={isActive('/trash')} />
     </>
   );
 

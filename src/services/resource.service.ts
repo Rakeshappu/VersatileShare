@@ -1,4 +1,3 @@
-
 import api from './api';
 import socketService from './socket.service';
 import { getCache, setCache, deleteCache } from '../lib/cache/redis';
@@ -14,6 +13,7 @@ interface ResourceQuery {
   limit?: number;
   page?: number;
   category?: string;
+  placementCategory?: string;
 }
 
 /**
@@ -36,6 +36,7 @@ export const getResources = async (query: ResourceQuery = {}) => {
     if (query.limit) queryString.append('limit', query.limit.toString());
     if (query.page) queryString.append('page', query.page.toString());
     if (query.category) queryString.append('category', query.category);
+    if (query.placementCategory) queryString.append('placementCategory', query.placementCategory);
     
     // Try to get from cache first if Redis is configured
     if (!redisConfig.useMocks) {
@@ -79,6 +80,10 @@ export const createResource = async (resourceData: FormData) => {
   try {
     console.log('Creating resource with data:', Object.fromEntries(resourceData.entries()));
     
+    // Check if this is a placement resource
+    const isPlacementResource = resourceData.get('category') === 'placement';
+    const endpoint = isPlacementResource ? API_ROUTES.RESOURCES.PLACEMENT : API_ROUTES.RESOURCES.CREATE;
+    
     // For large files, get a presigned S3 URL first
     const fileInput = resourceData.get('file') as File;
     
@@ -106,7 +111,7 @@ export const createResource = async (resourceData: FormData) => {
     }
     
     // Create the resource with the file URL (or with the file for smaller files)
-    const response = await api.post(API_ROUTES.RESOURCES.CREATE, resourceData, {
+    const response = await api.post(endpoint, resourceData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -227,15 +232,27 @@ export const getResourceById = async (resourceId: string) => {
  */
 export const deleteResource = async (resourceId: string) => {
   try {
+    if (!resourceId || resourceId === 'undefined') {
+      throw new Error('Invalid resource ID');
+    }
+    
     console.log('Deleting resource with ID:', resourceId);
     
-    // Use direct fetch API instead of axios to avoid React Router context issues in SSR
+    // Get the token from localStorage for authentication
     const token = localStorage.getItem('token');
-    const response = await fetch(`/api/resources/${resourceId}`, {
+    if (!token) {
+      throw new Error('Authentication required to delete resources');
+    }
+    
+    const apiUrl = API_ROUTES.RESOURCES.DELETE(resourceId);
+    console.log('Delete URL:', apiUrl);
+    
+    // Use fetch API for more control over the request
+    const response = await fetch(apiUrl, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        'Authorization': `Bearer ${token}`
       }
     });
     
@@ -272,6 +289,73 @@ export const deleteResource = async (resourceId: string) => {
     return data;
   } catch (error) {
     console.error('Failed to delete resource:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get analytics data for a resource
+ */
+export const getResourceAnalytics = async (resourceId: string) => {
+  try {
+    console.log('Fetching analytics for resource ID:', resourceId);
+    
+    // If in development mode and services not configured, use mock data
+    if (process.env.NODE_ENV === 'development' && !s3Config.isConfigured()) {
+      console.log('Using mock analytics data for resource ID:', resourceId);
+      
+      // Return mock analytics data
+      return {
+        views: 45,
+        downloads: 12,
+        likes: 8,
+        comments: 3,
+        uniqueViewers: 32,
+        likedBy: Array.from({ length: 5 }, (_, i) => ({
+          _id: `mock-user-${i}`,
+          fullName: `Student ${i + 1}`,
+          email: `student${i + 1}@example.com`,
+          department: ['Computer Science', 'Information Science', 'Electronics', 'Mechanical'][i % 4],
+          likedAt: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString()
+        })),
+        commentDetails: Array.from({ length: 3 }, (_, i) => ({
+          _id: `mock-comment-${i}`,
+          content: ["This resource is really helpful!", "Could you provide more examples?", "Thanks for sharing this material!"][i % 3],
+          author: {
+            _id: `mock-comment-author-${i}`,
+            fullName: `Student ${i + 1}`,
+            email: `student${i + 1}@example.com`,
+            department: ['Computer Science', 'Information Science', 'Electronics', 'Mechanical'][i % 4]
+          },
+          createdAt: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString()
+        })),
+        dailyViews: Array.from({ length: 7 }, (_, i) => {
+          const date = new Date();
+          date.setDate(date.getDate() - (6 - i));
+          return {
+            date: date.toISOString(),
+            count: Math.floor(Math.random() * 8) + 1
+          };
+        }),
+        departmentDistribution: [
+          { name: 'Computer Science', count: 18 },
+          { name: 'Information Science', count: 13 },
+          { name: 'Electronics', count: 9 },
+          { name: 'Mechanical', count: 5 }
+        ]
+      };
+    }
+    
+    // Get analytics data from API
+    const analyticsUrl = API_ROUTES.RESOURCES.ANALYTICS(resourceId);
+    console.log('Analytics URL:', analyticsUrl);
+    
+    const response = await api.get(analyticsUrl);
+    console.log('Analytics response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Failed to get resource analytics:', error);
     throw error;
   }
 };

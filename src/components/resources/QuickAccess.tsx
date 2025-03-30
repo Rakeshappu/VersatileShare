@@ -44,7 +44,6 @@ export const QuickAccess = () => {
   
   const handleItemClick = (path: string) => {
     console.log("Navigating to:", path);
-    // Always navigate directly to the path
     navigate(path);
   };
   

@@ -40,13 +40,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 async function getResources(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const { semester, subject, type } = req.query;
+    const { semester, subject, type, category, placementCategory } = req.query;
     
     const query: any = {};
     
     if (semester) query.semester = parseInt(semester as string);
     if (subject) query.subject = subject;
     if (type) query.type = type;
+    if (category) query.category = category;
+    if (placementCategory) query.placementCategory = placementCategory;
     
     console.log('Fetching resources with query:', query);
     
@@ -101,9 +103,11 @@ async function createResource(req: NextApiRequest, res: NextApiResponse) {
     const subject = fields.subject?.[0] || fields.subject;
     const semester = fields.semester?.[0] || fields.semester;
     const link = fields.link?.[0] || fields.link || '';
+    const category = fields.category?.[0] || fields.category || 'study';
+    const placementCategory = fields.placementCategory?.[0] || fields.placementCategory || null;
     
     // Validate required fields
-    if (!title || !type || !subject || !semester) {
+    if (!title || !type || !subject || semester === undefined) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
@@ -174,12 +178,20 @@ async function createResource(req: NextApiRequest, res: NextApiResponse) {
         comments: 0,
         downloads: 0,
       },
+      category,
     };
+    
+    // Only add placementCategory if it's a placement resource
+    if (category === 'placement' && placementCategory) {
+      resourceData.placementCategory = placementCategory;
+    }
     
     // Only add uploadedBy if we have a userId
     if (userId) {
       resourceData.uploadedBy = userId;
     }
+    
+    console.log('Creating resource with data:', resourceData);
     
     const resource = new Resource(resourceData);
     

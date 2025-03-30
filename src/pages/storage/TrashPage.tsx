@@ -1,9 +1,18 @@
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 import { Trash, FileText, RefreshCw } from 'lucide-react';
 
 export const TrashPage = () => {
-  const [trashedItems, setTrashedItems] = useState([
+  const { user } = useAuth();
+  
+  // Redirect students to dashboard if they try to access the trash page
+  if (user && user.role === 'student') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const [trashedItems, setTrashedItems] = React.useState([
     { id: 1, name: 'Old Lecture Notes.pdf', type: 'PDF', size: '1.5 MB', date: '2023-10-10', deleteDate: '2023-11-10' },
     { id: 2, name: 'Draft Assignment.docx', type: 'Word', size: '0.9 MB', date: '2023-10-05', deleteDate: '2023-11-05' },
     { id: 3, name: 'Backup Files.zip', type: 'Archive', size: '7.2 MB', date: '2023-09-30', deleteDate: '2023-10-30' },
@@ -95,3 +104,5 @@ export const TrashPage = () => {
     </div>
   );
 };
+
+export default TrashPage;

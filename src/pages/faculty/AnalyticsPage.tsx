@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { BarChart2, Users, ThumbsUp, MessageSquare, Calendar } from 'lucide-react';
 import { AnalyticsCard } from '../../components/analytics/AnalyticsCard';
 import api from '../../services/api';
 import { toast } from 'react-hot-toast';
+import { getResourceAnalytics } from '../../services/resource.service';
 
 interface AnalyticsData {
   views: number;
@@ -38,38 +38,72 @@ export const AnalyticsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedResource, setSelectedResource] = useState<string | null>(null);
   const [resources, setResources] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchResources = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError("Authentication token not found. Please login again.");
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log('Token available:', token.substring(0, 10) + '...');
+        
         const response = await api.get('/api/resources/faculty');
-        setResources(response.data.resources || []);
+        console.log('Faculty resources response:', response.data);
         
         if (response.data.resources && response.data.resources.length > 0) {
-          setSelectedResource(response.data.resources[0]._id);
-          fetchResourceAnalytics(response.data.resources[0]._id);
+          setResources(response.data.resources || []);
+          
+          setSelectedResource(response.data.resources[0].id);
         } else {
           setIsLoading(false);
+          setError("No resources found. Please upload resources first.");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching resources:', error);
+        setError(error.message || "Failed to load resources. Please try again later.");
         toast.error('Failed to load resources');
         setIsLoading(false);
       }
     };
 
-    fetchResources();
+    fetchResources().then(() => {
+      setIsLoading(false);
+    });
   }, []);
 
+  useEffect(() => {
+    if (selectedResource) {
+      fetchResourceAnalytics(selectedResource);
+    }
+  }, [selectedResource]);
+
   const fetchResourceAnalytics = async (resourceId: string) => {
+    if (!resourceId) {
+      console.error('No resource ID provided');
+      return;
+    }
+    
     try {
       setIsLoading(true);
-      const response = await api.get(`/api/resources/${resourceId}/analytics`);
-      setAnalyticsData(response.data);
+      setError(null);
+      
+      console.log('Fetching analytics for resource ID:', resourceId);
+      const analyticsData = await getResourceAnalytics(resourceId);
+      console.log('Analytics data:', analyticsData);
+      
+      setAnalyticsData(analyticsData);
       setIsLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching analytics:', error);
+      setError(error.message || "Failed to load analytics data for this resource.");
       toast.error('Failed to load analytics data');
       setIsLoading(false);
     }
@@ -78,7 +112,34 @@ export const AnalyticsPage = () => {
   const handleResourceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const resourceId = e.target.value;
     setSelectedResource(resourceId);
-    fetchResourceAnalytics(resourceId);
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    const currentResource = selectedResource;
+    if (resources.length === 0) {
+      setSelectedResource(null);
+      const fetchResources = async () => {
+        try {
+          setIsLoading(true);
+          const response = await api.get('/api/resources/faculty');
+          if (response.data.resources && response.data.resources.length > 0) {
+            setResources(response.data.resources);
+            setSelectedResource(response.data.resources[0].id);
+          } else {
+            setIsLoading(false);
+            setError("No resources found. Please upload resources first.");
+          }
+        } catch (error: any) {
+          console.error('Error retrying resource fetch:', error);
+          setError(error.message || "Failed to load resources. Please try again later.");
+          setIsLoading(false);
+        }
+      };
+      fetchResources();
+    } else if (currentResource) {
+      fetchResourceAnalytics(currentResource);
+    }
   };
 
   return (
@@ -98,7 +159,7 @@ export const AnalyticsPage = () => {
         >
           {resources.length === 0 && <option value="">No resources available</option>}
           {resources.map(resource => (
-            <option key={resource._id} value={resource._id}>
+            <option key={resource.id} value={resource.id}>
               {resource.title}
             </option>
           ))}
@@ -108,6 +169,18 @@ export const AnalyticsPage = () => {
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 my-4">
+          <div className="flex flex-col">
+            <p className="text-red-700 mb-2">{error}</p>
+            <button 
+              onClick={handleRetry} 
+              className="self-start px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       ) : !analyticsData ? (
         <div className="mt-8 p-6 bg-white rounded-lg shadow-md">
@@ -141,7 +214,6 @@ export const AnalyticsPage = () => {
             />
           </div>
 
-          {/* Who Liked Section */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Who Liked This Resource</h2>
             {analyticsData.likedBy && analyticsData.likedBy.length > 0 ? (
@@ -167,7 +239,6 @@ export const AnalyticsPage = () => {
             )}
           </div>
 
-          {/* Comments Section - Enhanced to show author details and comment content clearly */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Comments</h2>
             {analyticsData.commentDetails && analyticsData.commentDetails.length > 0 ? (
@@ -201,7 +272,6 @@ export const AnalyticsPage = () => {
             )}
           </div>
 
-          {/* Department Distribution */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Department Distribution</h2>
             {analyticsData.departmentDistribution && analyticsData.departmentDistribution.length > 0 ? (

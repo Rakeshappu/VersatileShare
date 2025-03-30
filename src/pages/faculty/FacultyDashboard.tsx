@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { ResourceUpload } from '../../components/faculty/ResourceUpload';
 import { ResourceList } from '../../components/faculty/ResourceList';
@@ -12,6 +11,7 @@ import { checkDatabaseConnection } from '../../services/resource.service';
 import { MongoDBStatusBanner } from '../../components/auth/MongoDBStatusBanner';
 import { API_ROUTES } from '../../lib/api/routes';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -57,6 +57,7 @@ export const FacultyDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<any>(null);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -72,60 +73,57 @@ export const FacultyDashboard = () => {
     checkConnection();
   }, []);
 
+  const fetchResources = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get(API_ROUTES.RESOURCES.LIST);
+      console.log('Fetched resources from DB:', response.data);
+      
+      const resourcesData = response.data.resources || response.data || [];
+      
+      const formattedResources = Array.isArray(resourcesData) 
+        ? resourcesData.map((res: any) => ({
+            id: res._id,
+            title: res.title,
+            description: res.description,
+            type: res.type,
+            subject: res.subject,
+            semester: res.semester,
+            uploadDate: res.createdAt,
+            fileName: res.fileName,
+            fileUrl: res.fileUrl,
+            stats: {
+              views: res.stats?.views || 0,
+              likes: res.stats?.likes || 0,
+              comments: res.stats?.comments || 0,
+              downloads: res.stats?.downloads || 0,
+              lastViewed: res.stats?.lastViewed || new Date().toISOString()
+            }
+          }))
+        : [];
+      
+      setResources(formattedResources);
+      
+      if (typeof window !== 'undefined') {
+        window.sharedResources = formattedResources;
+      }
+    } catch (err) {
+      console.error('Error fetching resources:', err);
+      
+      if (window.sharedResources && window.sharedResources.length > 0) {
+        setResources([...window.sharedResources]);
+      } else {
+        setResources([]);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
     
-    const fetchResourcesFromDB = async () => {
-      try {
-        setIsLoading(true);
-        const response = await api.get(API_ROUTES.RESOURCES.LIST);
-        console.log('Fetched resources from DB:', response.data);
-        
-        // Check if resources exist in the response data
-        const resourcesData = response.data.resources || response.data || [];
-        
-        // Only map if we have an array
-        const formattedResources = Array.isArray(resourcesData) 
-          ? resourcesData.map((res: any) => ({
-              id: res._id,
-              title: res.title,
-              description: res.description,
-              type: res.type,
-              subject: res.subject,
-              semester: res.semester,
-              uploadDate: res.createdAt,
-              fileName: res.fileName,
-              fileUrl: res.fileUrl,
-              stats: {
-                views: res.stats?.views || 0,
-                likes: res.stats?.likes || 0,
-                comments: res.stats?.comments || 0,
-                downloads: res.stats?.downloads || 0,
-                lastViewed: res.stats?.lastViewed || new Date().toISOString()
-              }
-            }))
-          : [];
-        
-        setResources(formattedResources);
-        
-        if (typeof window !== 'undefined') {
-          window.sharedResources = formattedResources;
-        }
-      } catch (err) {
-        console.error('Error fetching resources:', err);
-        
-        if (window.sharedResources && window.sharedResources.length > 0) {
-          setResources([...window.sharedResources]);
-        } else {
-          // Set empty array if no resources are found
-          setResources([]);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchResourcesFromDB();
+    fetchResources();
   }, [user]);
 
   useEffect(() => {
@@ -135,7 +133,6 @@ export const FacultyDashboard = () => {
       try {
         const response = await api.get('/api/subject-folders');
         
-        // Check if response is valid JSON
         if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
           console.error('Received HTML instead of JSON for subject folders');
           return;
@@ -219,11 +216,8 @@ export const FacultyDashboard = () => {
   };
 
   const handleViewAnalytics = (resourceId: string) => {
-    const resource = resources.find(r => r.id === resourceId);
-    if (resource) {
-      setSelectedResource(resource);
-      setShowAnalytics(true);
-    }
+    console.log('Viewing analytics for resource:', resourceId);
+    navigate('/faculty/analytics', { state: { resourceId } });
   };
 
   const handleStartUpload = () => {
@@ -304,10 +298,11 @@ export const FacultyDashboard = () => {
               </button>
             </motion.div>
             
-            <ResourceList
-              resources={resources}
+            <ResourceList 
+              resources={resources} 
               onViewAnalytics={handleViewAnalytics}
               showDeleteButton={true}
+              onResourceDeleted={fetchResources}
             />
           </motion.div>
         )}
@@ -376,21 +371,7 @@ export const FacultyDashboard = () => {
                 dailyViews: Array.from({ length: 7 }, (_, i) => ({
                   date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
                   count: Math.floor(Math.random() * 50)
-                })),
-                topDepartments: [
-                  { name: 'Computer Science', count: 450 },
-                  { name: 'Information Science', count: 320 },
-                  { name: 'Electronics & Communication', count: 280 },
-                  { name: 'Mechanical', count: 200 },
-                  { name: 'Civil', count: 150 }
-                ],
-                studentFeedback: [
-                  { rating: 5, count: 25 },
-                  { rating: 4, count: 15 },
-                  { rating: 3, count: 8 },
-                  { rating: 2, count: 3 },
-                  { rating: 1, count: 1 }
-                ]
+                }))
               }}
               resourceTitle={selectedResource.title}
             />
@@ -400,3 +381,5 @@ export const FacultyDashboard = () => {
     </div>
   );
 };
+
+export default FacultyDashboard;
