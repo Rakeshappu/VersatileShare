@@ -4,7 +4,7 @@ import { FileText, Video, Link as LinkIcon, BarChart2, Eye, ThumbsUp, MessageSqu
 import { FacultyResource } from '../../types/faculty';
 import { formatDate } from '../../utils/dateUtils';
 import { toast } from 'react-hot-toast';
-import { deleteResource } from '../../services/resource.service';
+import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 
 interface ResourceListProps {
   resources: FacultyResource[];
@@ -28,6 +28,8 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
   const [selectedSemester, setSelectedSemester] = useState<number | 'all'>('all');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [resourceToDelete, setResourceToDelete] = useState<string | null>(null);
 
   const getIcon = (type: FacultyResource['type']) => {
     switch (type) {
@@ -40,60 +42,76 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
     }
   };
 
-  const handleDeleteResource = async (resourceId: string) => {
+  const handleDeletePrompt = (resourceId: string) => {
     if (!resourceId) {
       toast.error('Invalid resource ID');
       return;
     }
     
-    if (window.confirm('Are you sure you want to delete this resource?')) {
-      try {
-        setIsDeleting(true);
-        setDeletingId(resourceId);
-        console.log('Deleting resource with ID:', resourceId);
-        
-        // Call the API directly with fetch for more reliable execution
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Authentication required');
-        }
-        
-        const response = await fetch(`/api/resources/${resourceId}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Delete failed with status: ${response.status}`);
-        }
-        
-        console.log('Delete successful');
-        
-        // Update the shared resources to reflect deletion - ensure we check both ID formats
-        if (window.sharedResources) {
-          window.sharedResources = window.sharedResources.filter(r => 
-            (r.id !== resourceId) && (r._id !== resourceId)
-          );
-        }
-        
-        // Show success message
-        toast.success('Resource deleted successfully');
-        
-        // Notify parent component if needed
-        if (onResourceDeleted) {
-          onResourceDeleted();
-        }
-      } catch (error) {
-        console.error('Error deleting resource:', error);
-        toast.error('Failed to delete resource');
-      } finally {
-        setIsDeleting(false);
-        setDeletingId(null);
-      }
+    setResourceToDelete(resourceId);
+    setShowDeleteConfirmation(true);
+  };
+
+  const handleDeleteResource = async () => {
+    if (!resourceToDelete) {
+      toast.error('Invalid resource ID');
+      setShowDeleteConfirmation(false);
+      return;
     }
+    
+    try {
+      setIsDeleting(true);
+      setDeletingId(resourceToDelete);
+      console.log('Deleting resource with ID:', resourceToDelete);
+      
+      // Call the API directly with fetch for more reliable execution
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
+      const response = await fetch(`/api/resources/${resourceToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Delete failed with status: ${response.status}`);
+      }
+      
+      console.log('Delete successful');
+      
+      // Update the shared resources to reflect deletion - ensure we check both ID formats
+      if (window.sharedResources) {
+        window.sharedResources = window.sharedResources.filter(r => 
+          (r.id !== resourceToDelete) && (r._id !== resourceToDelete)
+        );
+      }
+      
+      // Show success message
+      toast.success('Resource deleted successfully');
+      
+      // Notify parent component if needed
+      if (onResourceDeleted) {
+        onResourceDeleted();
+      }
+    } catch (error) {
+      console.error('Error deleting resource:', error);
+      toast.error('Failed to delete resource');
+    } finally {
+      setIsDeleting(false);
+      setDeletingId(null);
+      setShowDeleteConfirmation(false);
+      setResourceToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirmation(false);
+    setResourceToDelete(null);
   };
 
   // Define filteredResources here
@@ -190,7 +208,7 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
                 <div className="flex items-center space-x-3">
                   {showDeleteButton && (
                     <button
-                      onClick={() => handleDeleteResource(resource.id || resource._id || '')}
+                      onClick={() => handleDeletePrompt(resource.id || resource._id || '')}
                       disabled={isDeleting && deletingId === (resource.id || resource._id)}
                       className="flex items-center space-x-1 text-red-600 hover:text-red-700 disabled:opacity-50 cursor-pointer"
                       type="button"
@@ -232,6 +250,17 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
           ))}
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={showDeleteConfirmation}
+        title="Delete Resource"
+        message="Are you sure you want to delete this resource? This action cannot be undone."
+        confirmButtonText="Delete"
+        cancelButtonText="Cancel"
+        onConfirm={handleDeleteResource}
+        onCancel={handleCancelDelete}
+        isProcessing={isDeleting}
+      />
     </div>
   );
 };

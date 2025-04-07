@@ -151,9 +151,9 @@ export const createResource = async (resourceData: FormData) => {
 /**
  * Update a resource's statistics (views, downloads, likes, comments)
  */
-export const updateResourceStats = async (resourceId: string, action: 'view' | 'download' | 'like' | 'comment') => {
+export const updateResourceStats = async (resourceId: string, action: 'view' | 'download' | 'like' | 'comment', userId?: string) => {
   try {
-    console.log('Updating resource stats:', { resourceId, action });
+    console.log('Updating resource stats:', { resourceId, action, userId });
     
     // If in development mode and services not configured, simulate success
     if (process.env.NODE_ENV === 'development' && !s3Config.isConfigured()) {
@@ -182,7 +182,7 @@ export const updateResourceStats = async (resourceId: string, action: 'view' | '
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ resourceId, action })
+      body: JSON.stringify({ resourceId, action, userId: userId || token })
     });
     
     if (!response.ok) {
@@ -322,67 +322,23 @@ export const deleteResource = async (resourceId: string) => {
   }
 };
 
-// We don't need to implement checkDatabaseConnection and getResourceAnalytics here
-// as they are causing TypeScript errors and not part of the current functionality we're fixing
-
-// Export a dummy function to address TypeScript error
+// Export the checkDatabaseConnection function with proper implementation
 export const checkDatabaseConnection = async () => {
-  console.log('This is a dummy implementation to fix TypeScript errors');
-  return {
-    connected: true,
-    error: null
-  };
+  try {
+    const response = await api.get('/api/db/status');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to check database connection:', error);
+    return {
+      connected: false,
+      error: 'Failed to connect to the database'
+    };
+  }
 };
 
 export const getResourceAnalytics = async (resourceId: string) => {
   try {
     console.log('Fetching analytics for resource ID:', resourceId);
-    
-    // If in development mode and services not configured, use mock data
-    if (process.env.NODE_ENV === 'development' && !s3Config.isConfigured()) {
-      console.log('Using mock analytics data for resource ID:', resourceId);
-      
-      // Return mock analytics data
-      return {
-        views: 45,
-        downloads: 12,
-        likes: 8,
-        comments: 3,
-        uniqueViewers: 32,
-        likedBy: Array.from({ length: 5 }, (_, i) => ({
-          _id: `mock-user-${i}`,
-          fullName: `Student ${i + 1}`,
-          email: `student${i + 1}@example.com`,
-          department: ['Computer Science', 'Information Science', 'Electronics', 'Mechanical'][i % 4],
-          likedAt: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString()
-        })),
-        commentDetails: Array.from({ length: 3 }, (_, i) => ({
-          _id: `mock-comment-${i}`,
-          content: ["This resource is really helpful!", "Could you provide more examples?", "Thanks for sharing this material!"][i % 3],
-          author: {
-            _id: `mock-comment-author-${i}`,
-            fullName: `Student ${i + 1}`,
-            email: `student${i + 1}@example.com`,
-            department: ['Computer Science', 'Information Science', 'Electronics', 'Mechanical'][i % 4]
-          },
-          createdAt: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString()
-        })),
-        dailyViews: Array.from({ length: 7 }, (_, i) => {
-          const date = new Date();
-          date.setDate(date.getDate() - (6 - i));
-          return {
-            date: date.toISOString(),
-            count: Math.floor(Math.random() * 8) + 1
-          };
-        }),
-        departmentDistribution: [
-          { name: 'Computer Science', count: 18 },
-          { name: 'Information Science', count: 13 },
-          { name: 'Electronics', count: 9 },
-          { name: 'Mechanical', count: 5 }
-        ]
-      };
-    }
     
     // Get analytics data from API
     const analyticsUrl = API_ROUTES.RESOURCES.ANALYTICS(resourceId);

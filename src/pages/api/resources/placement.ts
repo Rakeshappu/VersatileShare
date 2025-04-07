@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
 import { getErrorMessage } from '../../../utils/errorUtils';
-import { getStandardizedCategory } from '../../../utils/placementCategoryUtils';
+import { getStandardizedCategory, getAllCategoryIds } from '../../../utils/placementCategoryUtils';
 
 export const config = {
   api: {
@@ -75,6 +75,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Validate the placement category
     let placementCategory = fields.placementCategory?.[0] || 'general';
+    
+    // Check if the category is valid
+    const validCategories = getAllCategoryIds();
+    if (!validCategories.includes(placementCategory)) {
+      placementCategory = 'general';
+    }
     
     // Standardize the category
     placementCategory = getStandardizedCategory(placementCategory);

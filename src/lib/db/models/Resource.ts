@@ -159,6 +159,11 @@ ResourceSchema.pre('save', function(next) {
     };
   }
   
+  // Initialize dailyViews if it doesn't exist
+  if (!this.stats.dailyViews) {
+    this.stats.dailyViews = [];
+  }
+  
   // Initialize arrays if they don't exist
   if (!this.likedBy) this.likedBy = [];
   if (!this.comments) this.comments = [];

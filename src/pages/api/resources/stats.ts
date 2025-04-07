@@ -138,6 +138,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           };
         }
         resource.stats.likes += 1;
+        
+        // Add user to likedBy array if userId is provided
+        if (userId && !resource.likedBy.includes(userId)) {
+          resource.likedBy.push(userId);
+          
+          // Create activity record
+          try {
+            await Activity.create({
+              user: new mongoose.Types.ObjectId(userId),
+              type: 'like',
+              resource: resource._id,
+              details: { timestamp: new Date() },
+              timestamp: new Date()
+            });
+          } catch (activityError) {
+            console.error('Failed to create like activity record:', activityError);
+          }
+        }
         break;
         
       case 'comment':
@@ -151,6 +169,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           };
         }
         resource.stats.comments += 1;
+        
+        // Create activity record if userId is provided
+        if (userId) {
+          try {
+            await Activity.create({
+              user: new mongoose.Types.ObjectId(userId),
+              type: 'comment',
+              resource: resource._id,
+              details: { timestamp: new Date() },
+              timestamp: new Date()
+            });
+          } catch (activityError) {
+            console.error('Failed to create comment activity record:', activityError);
+          }
+        }
         break;
         
       default:

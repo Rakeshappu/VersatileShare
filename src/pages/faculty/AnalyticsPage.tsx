@@ -4,6 +4,7 @@ import { AnalyticsCard } from '../../components/analytics/AnalyticsCard';
 import api from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { getResourceAnalytics } from '../../services/resource.service';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AnalyticsData {
   views: number;
@@ -29,6 +30,10 @@ interface AnalyticsData {
   }>;
   departmentDistribution: Array<{
     name: string;
+    count: number;
+  }>;
+  dailyViews: Array<{
+    date: string;
     count: number;
   }>;
 }
@@ -61,7 +66,7 @@ export const AnalyticsPage = () => {
         if (response.data.resources && response.data.resources.length > 0) {
           setResources(response.data.resources || []);
           
-          setSelectedResource(response.data.resources[0].id);
+          setSelectedResource(response.data.resources[0]._id || response.data.resources[0].id);
         } else {
           setIsLoading(false);
           setError("No resources found. Please upload resources first.");
@@ -125,7 +130,7 @@ export const AnalyticsPage = () => {
           const response = await api.get('/api/resources/faculty');
           if (response.data.resources && response.data.resources.length > 0) {
             setResources(response.data.resources);
-            setSelectedResource(response.data.resources[0].id);
+            setSelectedResource(response.data.resources[0]._id || response.data.resources[0].id);
           } else {
             setIsLoading(false);
             setError("No resources found. Please upload resources first.");
@@ -159,7 +164,7 @@ export const AnalyticsPage = () => {
         >
           {resources.length === 0 && <option value="">No resources available</option>}
           {resources.map(resource => (
-            <option key={resource.id} value={resource.id}>
+            <option key={resource._id || resource.id} value={resource._id || resource.id}>
               {resource.title}
             </option>
           ))}
@@ -212,6 +217,37 @@ export const AnalyticsPage = () => {
               value={analyticsData.comments || 0}
               icon={<MessageSquare className="h-6 w-6 text-purple-600" />}
             />
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Daily Views</h2>
+            {analyticsData.dailyViews && analyticsData.dailyViews.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={analyticsData.dailyViews}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(date) => {
+                        const d = new Date(date);
+                        return `${d.getDate()}/${d.getMonth() + 1}`;
+                      }} 
+                    />
+                    <YAxis />
+                    <Tooltip
+                      labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                      formatter={(value) => [`${value} views`, 'Views']}
+                    />
+                    <Bar dataKey="count" fill="#4F46E5" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-gray-500">No daily view data available for this resource.</p>
+            )}
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">

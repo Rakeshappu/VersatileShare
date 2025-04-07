@@ -14,7 +14,8 @@ const ActivitySchema = new mongoose.Schema({
   },
   resource: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Resource'
+    ref: 'Resource',
+    required: true
   },
   details: {
     type: Object,

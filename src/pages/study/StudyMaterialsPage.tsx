@@ -7,6 +7,7 @@ import { groupBySemester, groupBySubject } from '../../utils/studyUtils';
 import { FacultyResource } from '../../types/faculty';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
+import { Book } from 'lucide-react';
 
 export const StudyMaterialsPage = () => {
   const { user } = useAuth();
@@ -115,16 +116,16 @@ export const StudyMaterialsPage = () => {
   
   return (
     <motion.div 
-      className="p-6 bg-gray-50"
+      className="p-6 bg-gray-50 min-h-screen"
       initial="hidden"
       animate="visible"
       variants={containerVariants}
     >
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} className="mb-6">
         <SearchBar />
       </motion.div>
       
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} className="mb-8">
         <StudyMaterialsHeader 
           selectedSemester={selectedSemester} 
           onSemesterChange={handleSemesterChange}
@@ -134,17 +135,30 @@ export const StudyMaterialsPage = () => {
         />
       </motion.div>
       
+      <motion.div 
+        variants={itemVariants}
+        className="flex items-center mb-6 bg-white p-4 rounded-lg shadow border-l-4 border-indigo-500"
+      >
+        <Book className="h-6 w-6 text-indigo-600 mr-3" />
+        <h2 className="text-xl font-semibold text-gray-800">
+          Semester {selectedSemester} Learning Materials
+        </h2>
+      </motion.div>
+      
       {sortedSubjects.length === 0 ? (
         <motion.div 
-          className="text-center py-12 text-gray-500"
+          className="bg-white rounded-lg shadow p-12 text-center text-gray-500"
           variants={itemVariants}
         >
-          <p className="text-lg">No resources available for Semester {selectedSemester}</p>
-          <p className="mt-2">Check back later or ask your faculty to upload resources.</p>
+          <div className="bg-indigo-50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4">
+            <Book className="h-10 w-10 text-indigo-500" />
+          </div>
+          <p className="text-xl font-medium mb-2">No resources available for Semester {selectedSemester}</p>
+          <p className="text-gray-500">Check back later or ask your faculty to upload resources.</p>
         </motion.div>
       ) : (
         <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           variants={containerVariants}
         >
           {sortedSubjects.map((subject) => (

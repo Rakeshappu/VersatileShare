@@ -54,62 +54,14 @@ export const ResourceAnalyticsView = ({ analytics, resourceTitle, resourceId }: 
     }
   }, [resourceId]);
 
-  // Generate real daily views data based on analytics data and timestamp calculations
+  // Format daily views data for chart display
   useEffect(() => {
-    const generateRealDailyViewsData = () => {
-      // Start date is 7 days ago
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - 6); // 7 days including today
-      
-      // Create array with one entry per day
-      const dailyData = [];
-      for (let i = 0; i <= 6; i++) {
-        const day = new Date(startDate);
-        day.setDate(startDate.getDate() + i);
-        
-        // Format as ISO string for consistency
-        const dateStr = day.toISOString().split('T')[0];
-        
-        // Get view count from analytics data or from detailed analytics if available
-        let viewCount = 0;
-        
-        if (detailedAnalytics && detailedAnalytics.viewedBy) {
-          // Count views that happened on this date
-          viewCount = detailedAnalytics.viewedBy.filter((view: any) => {
-            const viewDate = new Date(view.timestamp).toISOString().split('T')[0];
-            return viewDate === dateStr;
-          }).length;
-        } else if (analytics.dailyViews) {
-          // Fallback to existing data if available
-          const existingData = analytics.dailyViews.find(item => 
-            new Date(item.date).toISOString().split('T')[0] === dateStr
-          );
-          
-          if (existingData) {
-            viewCount = existingData.count;
-          }
-        }
-        
-        // Add weighted random noise if there's no real data (for demo purposes)
-        // In a real app, this would be real data from the database
-        if (!detailedAnalytics && viewCount === 0 && analytics.views > 0) {
-          // Create a bell curve distribution with higher probability in the middle days
-          const weight = 1 - Math.abs((i - 3) / 6); // Weight from 0 to 1
-          viewCount = Math.floor(Math.random() * analytics.views * 0.3 * weight);
-        }
-        
-        dailyData.push({
-          date: dateStr,
-          count: viewCount
-        });
-      }
-      
-      setRealDailyViews(dailyData);
-    };
-    
-    generateRealDailyViewsData();
-  }, [analytics.views, analytics.dailyViews, detailedAnalytics]);
+    if (detailedAnalytics && detailedAnalytics.dailyViews) {
+      setRealDailyViews(detailedAnalytics.dailyViews);
+    } else if (analytics.dailyViews) {
+      setRealDailyViews(analytics.dailyViews);
+    }
+  }, [detailedAnalytics, analytics.dailyViews]);
 
   const fetchDetailedAnalytics = async () => {
     if (!resourceId) return;
@@ -193,10 +145,10 @@ export const ResourceAnalyticsView = ({ analytics, resourceTitle, resourceId }: 
       <h2 className="text-xl font-semibold text-gray-800 mb-6">Analytics for "{resourceTitle}"</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard title="Views" value={analytics.views} icon="👁️" />
-        <StatCard title="Likes" value={analytics.likes} icon="👍" />
-        <StatCard title="Comments" value={analytics.comments} icon="💬" />
-        <StatCard title="Downloads" value={analytics.downloads} icon="📥" />
+        <StatCard title="Views" value={detailedAnalytics?.views || analytics.views} icon="👁️" />
+        <StatCard title="Likes" value={detailedAnalytics?.likes || analytics.likes} icon="👍" />
+        <StatCard title="Comments" value={detailedAnalytics?.comments || analytics.comments} icon="💬" />
+        <StatCard title="Downloads" value={detailedAnalytics?.downloads || analytics.downloads} icon="📥" />
       </div>
       
       <div className="bg-gray-50 p-4 rounded-lg mb-8">
