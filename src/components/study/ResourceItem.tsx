@@ -121,13 +121,29 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     
     try {
       setIsLoading(true);
-      const response = await api.post(`/api/resources/${resource.id}/like`, {
-        like: !isLiked
+      // We need to include the token in the headers
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/resources/${resource.id}/like`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ like: !isLiked })
       });
       
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
       setIsLiked(!isLiked);
-      setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+      setLikesCount(data.likesCount || (isLiked ? likesCount - 1 : likesCount + 1));
       toast.success(isLiked ? 'Removed like' : 'Added like');
+      
+      // Update the stats
+      updateResourceStats('like');
     } catch (error) {
       console.error('Failed to like resource:', error);
       toast.error('Failed to update like status');
@@ -162,11 +178,26 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     
     try {
       setIsLoading(true);
-      const response = await api.post(`/api/resources/${resource.id}/comments`, {
-        content: commentText
+      // Use fetch with explicit headers instead of axios
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/resources/${resource.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content: commentText })
       });
       
-      const newComment = response.data.comment;
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to add comment:', errorData);
+        throw new Error(errorData.error || 'Failed to add comment');
+      }
+      
+      const data = await response.json();
+      const newComment = data.comment;
+      
       setComments(prev => [newComment, ...prev]);
       setCommentText('');
       updateResourceStats('comment');

@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
 import { getErrorMessage } from '../../../utils/errorUtils';
+import { getStandardizedCategory } from '../../../utils/placementCategoryUtils';
 
 export const config = {
   api: {
@@ -72,6 +73,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Parsed form fields:', fields);
     console.log('Parsed files:', Object.keys(files).length ? 'Files present' : 'No files');
 
+    // Validate the placement category
+    let placementCategory = fields.placementCategory?.[0] || 'general';
+    
+    // Standardize the category
+    placementCategory = getStandardizedCategory(placementCategory);
+    
+    console.log('Using placement category:', placementCategory);
+
     let resourceData: any = {
       title: fields.title?.[0] || '',
       description: fields.description?.[0] || '',
@@ -79,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       subject: fields.subject?.[0] || '',
       semester: fields.semester?.[0] ? parseInt(fields.semester[0]) : 0,
       category: 'placement',
-      placementCategory: fields.placementCategory?.[0] || null,
+      placementCategory: placementCategory,
       uploadedBy: new mongoose.Types.ObjectId(userData.userId),
     };
 
@@ -125,11 +134,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Initialize stats object
     resourceData.stats = {
       views: 0,
+      downloads: 0,
       likes: 0,
       comments: 0,
-      downloads: 0,
-      lastViewed: new Date()
+      lastViewed: new Date(),
+      dailyViews: []
     };
+
+    // Initialize empty arrays for comments and likedBy
+    resourceData.comments = [];
+    resourceData.likedBy = [];
 
     try {
       // Create resource in database

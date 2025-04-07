@@ -2,11 +2,11 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/auth/login": "pages/api/auth/login.js",
-  "/api/db/status": "pages/api/db/status.js",
-  "/api/subject-folders": "pages/api/subject-folders.js",
   "/api/resources": "pages/api/resources.js",
-  "/api/resources/[id]/like": "pages/api/resources/[id]/like.js",
-  "/api/resources/[id]/comments": "pages/api/resources/[id]/comments.js",
-  "/api/resources/[id]": "pages/api/resources/[id].js"
+  "/api/subject-folders": "pages/api/subject-folders.js",
+  "/api/resources/placement": "pages/api/resources/placement.js",
+  "/api/auth/login": "pages/api/auth/login.js",
+  "/api/user/activity": "pages/api/user/activity.js",
+  "/api/resources/[id]/like-status": "pages/api/resources/[id]/like-status.js",
+  "/api/resources/[id]/like": "pages/api/resources/[id]/like.js"
 }

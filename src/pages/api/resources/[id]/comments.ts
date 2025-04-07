@@ -1,4 +1,3 @@
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 import connectDB from '../../../../lib/db/connect';
 import { Resource } from '../../../../lib/db/models/Resource';
@@ -91,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(400).json({ error: 'Comment content is required' });
         }
         
-        // Find resource and update its comment count
+        // Find resource
         const resource = await Resource.findById(id);
         if (!resource) {
           return res.status(404).json({ error: 'Resource not found' });
@@ -109,6 +108,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         
         resource.comments.push(newComment);
+        
+        // Update the comment count in stats
+        if (!resource.stats) {
+          resource.stats = {
+            views: 0,
+            downloads: 0,
+            likes: 0,
+            comments: 0,
+            lastViewed: new Date()
+          };
+        }
+        
         resource.stats.comments += 1;
         await resource.save();
         
@@ -117,7 +128,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .populate({
             path: 'comments.author',
             select: 'fullName email avatar department role',
-            match: { _id: user._id }
           });
         
         const addedComment = populatedResource?.comments[populatedResource.comments.length - 1];

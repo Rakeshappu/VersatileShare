@@ -1,6 +1,6 @@
 
 import mongoose from 'mongoose';
-import { User } from './User';
+import { getAllCategoryIds, getStandardizedCategory } from '../../../utils/placementCategoryUtils';
 
 // Define the Resource schema
 const ResourceSchema = new mongoose.Schema({
@@ -97,11 +97,30 @@ const ResourceSchema = new mongoose.Schema({
   },
   placementCategory: {
     type: String,
-    enum: ['aptitude', 'interview', 'resume', 'companies', 'general'],
-    default: null
+    enum: getAllCategoryIds(),
+    default: 'general'
   },
   tags: [{
     type: String
+  }],
+  likedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  comments: [{
+    content: {
+      type: String,
+      required: true
+    },
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
   }],
   createdAt: {
     type: Date,
@@ -122,6 +141,28 @@ ResourceSchema.pre('save', function(next) {
   if (this.category === 'placement' && this.semester !== 0) {
     this.semester = 0;
   }
+  
+  // Before saving, make sure placementCategory is standardized
+  if (this.category === 'placement' && this.placementCategory) {
+    this.placementCategory = getStandardizedCategory(this.placementCategory);
+  }
+  
+  // Initialize stats if they don't exist
+  if (!this.stats) {
+    this.stats = {
+      views: 0,
+      downloads: 0,
+      likes: 0,
+      comments: 0,
+      lastViewed: new Date(),
+      dailyViews: []
+    };
+  }
+  
+  // Initialize arrays if they don't exist
+  if (!this.likedBy) this.likedBy = [];
+  if (!this.comments) this.comments = [];
+  if (!this.tags) this.tags = [];
   
   next();
 });

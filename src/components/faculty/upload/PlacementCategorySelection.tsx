@@ -1,20 +1,5 @@
-
 import { ChevronLeft } from 'lucide-react';
-
-const placementCategories = [
-  { id: 'aptitude', name: 'Aptitude', description: 'Quantitative, logical and verbal reasoning' },
-  { id: 'dsa', name: 'Data Structures & Algorithms', description: 'Programming problems and solutions' },
-  { id: 'oops', name: 'Object-Oriented Programming', description: 'OOP concepts and implementations' },
-  { id: 'os', name: 'Operating Systems', description: 'OS concepts and interview questions' },
-  { id: 'cn', name: 'Computer Networks', description: 'Networking principles and protocols' },
-  { id: 'dbms', name: 'Database Management', description: 'SQL, DBMS concepts and normalization' },
-  { id: 'interview', name: 'Interview Preparation', description: 'Mock interviews and tips' },
-  { id: 'hr', name: 'HR Interview', description: 'HR questions and best practices' },
-  { id: 'resume', name: 'Resume Building', description: 'Resume templates and tips' },
-  { id: 'technical', name: 'Technical Skills', description: 'Language-specific and technical resources' },
-  { id: 'soft-skills', name: 'Soft Skills', description: 'Communication and interpersonal skills' },
-  { id: 'general', name: 'General Resources', description: 'Other placement-related materials' }
-];
+import { placementCategories } from '../../../utils/placementCategoryUtils';
 
 interface PlacementCategorySelectionProps {
   onCategorySelect: (categoryId: string, categoryName: string) => void;
