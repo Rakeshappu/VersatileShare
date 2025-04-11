@@ -1,8 +1,10 @@
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import connectDB from '../../../../lib/db/connect';
 import { Resource } from '../../../../lib/db/models/Resource';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
+import { notifyFacultyOfInteraction } from '../../../../lib/realtime/socket';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Handle CORS preflight
@@ -43,17 +45,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Invalid token format' });
     }
     
-    // Get the like action
+    // Get the like action - if not provided, we'll toggle
     const { like } = req.body;
     
     // Find resource
-    let resource;
-    try {
-      resource = await Resource.findById(id);
-    } catch (err) {
-      console.error('Error finding resource:', err);
-      return res.status(500).json({ error: 'Database error when finding resource' });
-    }
+    const resource = await Resource.findById(id);
     
     if (!resource) {
       return res.status(404).json({ error: 'Resource not found' });
@@ -80,34 +76,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Find if user has already liked this resource
     const userLikedIndex = resource.likedBy.findIndex(
-      (id: mongoose.Types.ObjectId) => id.toString() === decoded.userId
+      (id) => id.toString() === decoded.userId
     );
     
     const isLiked = userLikedIndex !== -1;
     const shouldLike = like !== undefined ? like : !isLiked;
     
+    let likesCount = resource.stats.likes || 0;
+    
     if (shouldLike && !isLiked) {
       // Add user to likedBy if not already present
       resource.likedBy.push(userId);
-      resource.stats.likes = (resource.stats.likes || 0) + 1;
+      likesCount += 1;
+      resource.stats.likes = likesCount;
+      
+      // Send notification to faculty if a student likes their resource
+      // Only send notification when a resource is liked, not unliked
+      if (resource.uploadedBy && resource.uploadedBy.toString() !== decoded.userId) {
+        notifyFacultyOfInteraction(id, decoded.userId, 'like');
+      }
     } else if (!shouldLike && isLiked) {
       // Remove user from likedBy
       resource.likedBy.splice(userLikedIndex, 1);
-      resource.stats.likes = Math.max(0, (resource.stats.likes || 0) - 1); // Prevent negative likes
+      likesCount = Math.max(0, likesCount - 1); // Prevent negative likes
+      resource.stats.likes = likesCount;
     }
     
     // Save the updated resource
-    try {
-      await resource.save();
-    } catch (err) {
-      console.error('Error saving resource:', err);
-      return res.status(500).json({ error: 'Database error when saving resource' });
-    }
+    await resource.save();
     
     return res.status(200).json({ 
       success: true,
       message: shouldLike ? 'Resource liked' : 'Resource unliked',
-      likesCount: resource.stats.likes || 0
+      likesCount: likesCount,
+      isLiked: shouldLike
     });
   } catch (error) {
     console.error('Error updating like status:', error);

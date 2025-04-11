@@ -1,8 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { ResourceUpload } from '../../components/faculty/ResourceUpload';
 import { ResourceList } from '../../components/faculty/ResourceList';
-import { ResourceAnalyticsView } from '../../components/faculty/ResourceAnalytics';
-import { UploadFormData, FacultyResource, ResourceAnalytics } from '../../types/faculty';
+import { UploadFormData, FacultyResource } from '../../types/faculty';
 import { UploadWorkflow } from '../../components/faculty/UploadWorkflow';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
@@ -205,6 +205,20 @@ export const FacultyDashboard = () => {
         window.sharedResources = [newResource, ...window.sharedResources];
       }
       
+      // Send notifications to students about the new resource
+      if (user && response.data.resource._id) {
+        try {
+          // Send notification through API endpoint
+          await api.post('/api/notifications/resource-uploaded', {
+            resourceId: response.data.resource._id,
+            facultyName: user.fullName
+          });
+          console.log('Notification sent to students about new resource');
+        } catch (notifyError) {
+          console.error('Failed to send notification:', notifyError);
+        }
+      }
+      
       toast.success('Resource uploaded successfully!');
       setShowResourceUpload(false);
     } catch (error) {
@@ -361,20 +375,6 @@ export const FacultyDashboard = () => {
             >
               <span>← Back to Resources</span>
             </motion.button>
-            <ResourceAnalyticsView
-              analytics={{
-                views: selectedResource.stats.views,
-                likes: selectedResource.stats.likes,
-                comments: selectedResource.stats.comments,
-                downloads: selectedResource.stats.downloads,
-                lastViewed: selectedResource.stats.lastViewed,
-                dailyViews: Array.from({ length: 7 }, (_, i) => ({
-                  date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-                  count: Math.floor(Math.random() * 50)
-                }))
-              }}
-              resourceTitle={selectedResource.title}
-            />
           </motion.div>
         )}
       </AnimatePresence>

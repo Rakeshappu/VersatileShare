@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -55,6 +54,19 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  gender: {
+    type: String,
+    enum: ['Male', 'Female', 'Other'],
+    default: 'Male',
+  },
+  batch: {
+    type: String,
+    default: '',
+  },
+  degree: {
+    type: String,
+    default: '',
+  },
   streak: {
     type: Number,
     default: 0,
@@ -63,6 +75,12 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  notifications: [{
+    message: String,
+    resourceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resource' },
+    createdAt: { type: Date, default: Date.now },
+    read: { type: Boolean, default: false }
+  }],
   verificationToken: String,
   verificationTokenExpiry: Date,
   verificationOTP: String,
@@ -111,4 +129,35 @@ userSchema.methods.updateStreak = async function() {
   return this.save();
 };
 
-export const User = mongoose.models.User || mongoose.model('User', userSchema);
+// Method to add notification
+userSchema.methods.addNotification = async function(notificationData: {
+  message: string;
+  resourceId?: mongoose.Types.ObjectId;
+}) {
+  this.notifications.unshift({
+    message: notificationData.message,
+    resourceId: notificationData.resourceId,
+    createdAt: new Date(),
+    read: false
+  });
+  
+  // Keep only latest 50 notifications
+  if (this.notifications.length > 50) {
+    this.notifications = this.notifications.slice(0, 50);
+  }
+  
+  return this.save();
+};
+
+// Safe export pattern for Next.js and Mongoose
+let User: mongoose.Model<any>;
+
+try {
+  // Use existing model if it exists
+  User = mongoose.model('User');
+} catch (error) {
+  // Otherwise, create a new model
+  User = mongoose.model('User', userSchema);
+}
+
+export { User };

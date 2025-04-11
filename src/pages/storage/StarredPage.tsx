@@ -1,75 +1,193 @@
 
-import React, { useState } from 'react';
-import { Star, FileText, Download, Trash } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, Download, Eye, Bookmark } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { DocumentViewer } from '../../components/document/DocumentViewer';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const StarredPage = () => {
-  const [starredItems, setStarredItems] = useState([
-    { id: 1, name: 'Introduction to React.pdf', type: 'PDF', size: '2.4 MB', date: '2023-10-15' },
-    { id: 2, name: 'Database Systems Notes.docx', type: 'Word', size: '1.8 MB', date: '2023-10-10' },
-    { id: 3, name: 'Algorithms Lecture.mp4', type: 'Video', size: '45.2 MB', date: '2023-09-28' },
-    { id: 4, name: 'Data Structures Assignment.pdf', type: 'PDF', size: '3.1 MB', date: '2023-09-15' },
-  ]);
+  const [starredItems, setStarredItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showDocViewer, setShowDocViewer] = useState(false);
+  const [currentDocument, setCurrentDocument] = useState<{url: string, name: string}>({url: '', name: ''});
+  const { user } = useAuth();
 
-  const removeFromStarred = (id: number) => {
-    setStarredItems(starredItems.filter(item => item.id !== id));
+  useEffect(() => {
+    fetchBookmarkedResources();
+  }, []);
+
+  const fetchBookmarkedResources = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch('/api/resources/bookmarks', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookmarked resources');
+      }
+
+      const data = await response.json();
+      setStarredItems(data.resources || []);
+    } catch (error) {
+      console.error('Error fetching bookmarked resources:', error);
+      toast.error('Failed to load bookmarked resources');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeFromStarred = async (id: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/resources/${id}/bookmark`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove bookmark');
+      }
+
+      // Update local state
+      setStarredItems(starredItems.filter(item => item._id !== id));
+      toast.success('Removed from bookmarks');
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      toast.error('Failed to remove bookmark');
+    }
+  };
+
+  const handleDownload = (item: any) => {
+    if (item.fileUrl) {
+      // Direct download
+      const a = document.createElement('a');
+      a.href = item.fileUrl;
+      a.download = item.fileName || item.title || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else if (item.type === 'link' && item.link) {
+      // Open link in new tab
+      window.open(item.link, '_blank');
+    } else {
+      toast.error('No file or link available for download');
+    }
+  };
+
+  const handleView = (item: any) => {
+    if (item.fileUrl) {
+      setCurrentDocument({
+        url: item.fileUrl,
+        name: item.fileName || item.title || 'Document'
+      });
+      setShowDocViewer(true);
+    } else if (item.type === 'link' && item.link) {
+      window.open(item.link, '_blank');
+    } else {
+      toast.error('No content available to view');
+    }
   };
 
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center">
-          <Star className="mr-2 text-yellow-500" size={24} />
-          Starred Items
+          <Bookmark className="mr-2 text-yellow-500" size={24} />
+          Bookmarked Resources
         </h1>
       </div>
 
-      {starredItems.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-yellow-500"></div>
+        </div>
+      ) : starredItems.length === 0 ? (
         <div className="text-center py-10">
-          <Star className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No starred items</h3>
+          <Bookmark className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No bookmarked items</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            You haven't starred any items yet.
+            You haven't bookmarked any items yet.
           </p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-            {starredItems.map((item) => (
-              <li key={item.id}>
-                <div className="px-4 py-4 sm:px-6 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FileText className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{item.name}</p>
-                      <p className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                        <span>{item.type}</span>
-                        <span className="mx-1">•</span>
-                        <span>{item.size}</span>
-                        <span className="mx-1">•</span>
-                        <span>{item.date}</span>
-                      </p>
-                    </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {starredItems.map((item) => (
+            <div key={item._id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all">
+              <div className="p-4">
+                <div className="flex items-center mb-3">
+                  <div className={`p-2 rounded-lg ${
+                    item.type === 'video' ? 'bg-red-100 text-red-600' :
+                    item.type === 'link' ? 'bg-blue-100 text-blue-600' :
+                    'bg-green-100 text-green-600'
+                  }`}>
+                    <FileText className="h-5 w-5" />
                   </div>
-                  <div className="flex space-x-2">
-                    <button className="p-1 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
-                      <Download size={18} />
-                    </button>
-                    <button 
-                      onClick={() => removeFromStarred(item.id)}
-                      className="p-1 text-yellow-500 hover:text-yellow-600"
-                    >
-                      <Star size={18} fill="currentColor" />
-                    </button>
-                    <button className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400">
-                      <Trash size={18} />
-                    </button>
+                  <div className="ml-3">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-200 line-clamp-1">{item.title}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{item.type} • {item.subject}</p>
                   </div>
                 </div>
-              </li>
-            ))}
-          </ul>
+                
+                <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-3">{item.description}</p>
+              </div>
+              
+              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 flex justify-between items-center">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {new Date(item.createdAt || item.uploadDate).toLocaleDateString()}
+                </span>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => handleView(item)}
+                    className="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
+                    title="View"
+                  >
+                    <Eye size={18} />
+                  </button>
+                  <button 
+                    onClick={() => handleDownload(item)}
+                    className="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
+                    title="Download"
+                  >
+                    <Download size={18} />
+                  </button>
+                  <button 
+                    onClick={() => removeFromStarred(item._id)}
+                    className="p-1 text-yellow-500 hover:text-yellow-600"
+                    title="Remove from bookmarks"
+                  >
+                    <Bookmark size={18} fill="currentColor" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
+      )}
+      
+      {showDocViewer && (
+        <DocumentViewer 
+          fileUrl={currentDocument.url} 
+          fileName={currentDocument.name} 
+          onClose={() => setShowDocViewer(false)} 
+        />
       )}
     </div>
   );
 };
+
+export default StarredPage;

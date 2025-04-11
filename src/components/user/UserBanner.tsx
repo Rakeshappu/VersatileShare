@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from 'react';
 import { Award, Calendar } from 'lucide-react';
 import { User } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { activityService } from '../../services/activity.service';
-import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ProfileSkeleton } from '../ui/LoadingSkeletons';
 
 interface UserBannerProps {
   user?: User;
@@ -14,9 +14,43 @@ export const UserBanner = ({ user }: UserBannerProps) => {
   const { user: authUser } = useAuth();
   const [activitiesToday, setActivitiesToday] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
   
   // Use the authenticated user from context if not passed as prop
   const displayUser = user || authUser;
+
+  // Update avatar URL when display user changes
+  useEffect(() => {
+    if (displayUser) {
+      setAvatarUrl(getAvatarUrl());
+    }
+  }, [displayUser]);
+  
+  // Listen for profile updates
+  useEffect(() => {
+    const handleProfileUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        console.log('UserBanner received profile update event:', customEvent.detail);
+        
+        if (customEvent.detail.avatar) {
+          setAvatarUrl(customEvent.detail.avatar);
+        } else {
+          // If avatar isn't in the event but user was updated, recalculate avatar
+          setAvatarUrl(getAvatarUrl());
+        }
+      }
+    };
+    
+    // Add event listener
+    document.addEventListener('profileUpdated', handleProfileUpdate);
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
+  }, []);
 
   // Fetch activities count for today
   useEffect(() => {
@@ -40,6 +74,11 @@ export const UserBanner = ({ user }: UserBannerProps) => {
               });
               
               setActivitiesToday(todayActivities.length);
+              
+              // Trigger animation if we have activities
+              if (todayActivities.length > 0) {
+                setTimeout(() => setShowAnimation(true), 500);
+              }
             } else {
               console.error('Activities is not an array:', activities);
               setActivitiesToday(0);
@@ -57,65 +96,158 @@ export const UserBanner = ({ user }: UserBannerProps) => {
     fetchTodayActivities();
   }, [displayUser]);
   
+  if (isLoading) {
+    return <ProfileSkeleton />;
+  }
+  
   if (!displayUser) {
     return (
-      <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-lg p-6 mb-8 animate-pulse">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-lg p-6 mb-8 animate-pulse"
+      >
         <div className="h-16 bg-indigo-700/50 rounded-lg"></div>
-      </div>
+      </motion.div>
     );
   }
   
-  const getAvatarUrl = () => {
+  function getAvatarUrl() {
+    if (!displayUser) return `https://ui-avatars.com/api/?name=User&background=random`;
     if (displayUser.avatar) {
       return displayUser.avatar;
     }
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(displayUser.fullName || "User")}&background=random`;
-  };
+  }
 
-  // Get a sensible name to display - make sure we always have a name to show
-  const displayName = displayUser.fullName || displayUser.email?.split('@')[0] || "User";
-  
+  const displayName = displayUser?.fullName || displayUser?.email?.split('@')[0] || "User";
   return (
-    <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-lg p-6 mb-8">
+    <motion.div 
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-lg p-6 mb-8 shadow-lg hover:shadow-xl transition-shadow duration-300"
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <img
-            src={getAvatarUrl()}
-            alt={displayName}
-            className="w-16 h-16 rounded-full border-2 border-white object-cover"
-            onError={(e) => {
-              // Fallback if image fails to load
-              e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
-            }}
-          />
+          <motion.div
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="relative"
+          >
+            <motion.img
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 260, damping: 20 }}
+              src={avatarUrl || getAvatarUrl()}
+              alt={displayName}
+              className="w-16 h-16 rounded-full border-2 border-white object-cover z-10 relative"
+              onError={(e) => {
+                // Fallback if image fails to load
+                e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
+              }}
+            />
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.6 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="absolute -inset-1 bg-white rounded-full blur-sm z-0"
+            />
+          </motion.div>
           <div>
-            <h2 className="text-2xl font-bold">Welcome back, {displayName}!</h2>
-            <p className="text-indigo-200">
-              {displayUser.semester ? `${displayUser.semester}th Semester • ` : ''}{displayUser.department || ''}
-            </p>
+            <motion.h2 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="text-2xl font-bold"
+            >
+              Welcome back, {displayName}!
+            </motion.h2>
+            <motion.p 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
+              className="text-indigo-200"
+            >
+              {displayUser?.semester ? `${displayUser.semester}th Semester • ` : ''}{displayUser?.department || ''}
+            </motion.p>
           </div>
         </div>
         <div className="flex items-center space-x-6">
-          <div className="text-center">
+          <motion.div 
+            className="text-center"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
+          >
             <div className="flex items-center space-x-2">
               <Award className="h-5 w-5 text-yellow-300" />
-              <span className="text-2xl font-bold">{displayUser.streak || 0}</span>
+              <AnimatePresence mode="wait">
+                <motion.span 
+                  key={displayUser?.streak || 0}
+                  className="text-2xl font-bold"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={showAnimation && (displayUser?.streak || 0) > 1 ? 
+                    { scale: [1, 1.5, 1], color: ["#fff", "#fde047", "#fff"], opacity: 1, y: 0 } : 
+                    { opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {displayUser?.streak || 0}
+                </motion.span>
+              </AnimatePresence>
             </div>
             <p className="text-sm text-indigo-200">Day Streak</p>
-          </div>
-          <div className="text-center">
+          </motion.div>
+          <motion.div 
+            className="text-center"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.9, duration: 0.5 }}
+          >
             <div className="flex items-center space-x-2">
               <Calendar className="h-5 w-5 text-green-300" />
-              {isLoading ? (
-                <div className="h-6 w-8 bg-indigo-700/50 rounded animate-pulse"></div>
-              ) : (
-                <span className="text-2xl font-bold">{activitiesToday}</span>
-              )}
+              <AnimatePresence mode="wait">
+                <motion.span 
+                  key={activitiesToday}
+                  className="text-2xl font-bold"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={showAnimation && activitiesToday > 0 ? 
+                    { scale: [1, 1.5, 1], color: ["#fff", "#86efac", "#fff"], opacity: 1, y: 0 } : 
+                    { opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {activitiesToday}
+                </motion.span>
+              </AnimatePresence>
             </div>
             <p className="text-sm text-indigo-200">Activities Today</p>
-          </div>
+          </motion.div>
         </div>
       </div>
-    </div>
+      
+      <motion.div 
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: "2px" }}
+        transition={{ delay: 1.2, duration: 0.6 }}
+        className="w-full mt-5 rounded-full overflow-hidden"
+      >
+        <div className="h-full w-full bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-500 animate-shimmer" />
+      </motion.div>
+      
+      <style jsx>{`
+        @keyframes shimmer {
+          0% { background-position: -1000px 0; }
+          100% { background-position: 1000px 0; }
+        }
+        .animate-shimmer {
+          background-size: 1000px 100%;
+          animation: shimmer 8s infinite linear;
+        }
+      `}</style>
+    </motion.div>
   );
 };

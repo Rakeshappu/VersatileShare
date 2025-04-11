@@ -135,10 +135,27 @@ export const createResource = async (resourceData: FormData) => {
     // Notify connected clients about the new resource
     if (socketService.isConnected()) {
       const resource = data.resource;
+      
+      // Send general resource update
       socketService.sendResourceUpdate(resource._id, {
         action: 'created',
         resource: resource
       });
+      
+      // Get user details from local storage
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const facultyName = userData.fullName || 'A faculty member';
+      
+      // If the resource is for a specific semester, emit semester-specific notification
+      if (resource.semester && resource.semester > 0) {
+        socketService.emitToSemester(resource.semester, 'new-resource-notification', {
+          resourceId: resource._id,
+          title: resource.title,
+          subject: resource.subject,
+          facultyName: facultyName,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
     
     return data.resource;

@@ -2,5 +2,10 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/resources": "pages/api/resources.js"
+  "/api/auth/me": "pages/api/auth/me.js",
+  "/api/user/notifications": "pages/api/user/notifications.js",
+  "/api/auth/login": "pages/api/auth/login.js",
+  "/api/db/status": "pages/api/db/status.js",
+  "/api/user/activity": "pages/api/user/activity.js",
+  "/api/resources/bookmarks": "pages/api/resources/bookmarks.js"
 }

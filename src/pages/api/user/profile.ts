@@ -38,13 +38,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Update user fields
     const { fullName, phoneNumber, department, avatar, gender, batch, degree } = req.body;
     
-    if (fullName) user.fullName = fullName;
-    if (phoneNumber) user.phoneNumber = phoneNumber;
-    if (department) user.department = department;
-    if (avatar) user.avatar = avatar;
-    if (gender) user.gender = gender;
-    if (batch) user.batch = batch;
-    if (degree) user.degree = degree;
+    if (fullName !== undefined) user.fullName = fullName;
+    if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
+    if (department !== undefined) user.department = department;
+    
+    // Only update avatar if it's provided and not an empty string
+    if (avatar !== undefined && avatar !== '') {
+      console.log('Updating user avatar');
+      user.avatar = avatar;
+    }
+    
+    if (gender !== undefined) user.gender = gender;
+    if (batch !== undefined) user.batch = batch;
+    if (degree !== undefined) user.degree = degree;
     
     console.log('Updating user profile with data:', { 
       fullName, phoneNumber, department, 
@@ -69,11 +75,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         gender: user.gender,
         batch: user.batch,
         degree: user.degree,
-        isEmailVerified: user.isEmailVerified
+        isVerified: user.isEmailVerified,
+        semester: user.semester,
+        notifications: user.notifications
       }
     });
   } catch (error) {
     console.error('Profile update error:', error);
-    return res.status(500).json({ error: 'Internal server error', details: error.message });
+    return res.status(500).json({ error: 'Internal server error', details: (error as Error).message });
   }
 }

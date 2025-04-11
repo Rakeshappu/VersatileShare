@@ -15,6 +15,7 @@ import { TrashPage as StudentTrashPage } from './pages/storage/TrashPage';
 import { SettingsPage as StudentSettingsPage } from './pages/settings/SettingsPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import PlacementResources from './pages/placement/PlacementResources';
+import { SubjectDetailPage } from './pages/study/SubjectDetailPage';
 
 // Import faculty pages
 import { AnalyticsPage } from './pages/faculty/AnalyticsPage';
@@ -72,6 +73,20 @@ function App() {
                     <div className="flex-1">
                       <Header />
                       <StudyMaterialsPage />
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/study/:subject"
+              element={
+                <PrivateRoute role="student">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <SubjectDetailPage />
                     </div>
                   </div>
                 </PrivateRoute>

@@ -2,16 +2,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import connectDB from '../../../lib/db/connect';
 import { User } from '../../../lib/db/models/User';
+import { Notification } from '../../../lib/db/models/Notification';
+import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
-  }
-  
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ error: 'Method not allowed' });
   }
   
   try {
@@ -33,16 +31,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Update notification preferences
-    // Note: We'd need to extend the User model to include these preferences
-    // For now, we'll just simulate a successful update
+    // GET method - Retrieve notifications
+    if (req.method === 'GET') {
+      // Get notifications for this user from the Notification model
+      const notifications = await Notification.find({ userId: user._id })
+        .sort({ createdAt: -1 })
+        .limit(50);
+      
+      return res.status(200).json({
+        success: true,
+        notifications: notifications
+      });
+    }
     
-    return res.status(200).json({
-      success: true,
-      message: 'Notification preferences updated successfully'
-    });
+    // PUT method - Mark notifications as read
+    if (req.method === 'PUT') {
+      const { notificationIds, markAll } = req.body;
+      
+      if (markAll) {
+        // Mark all notifications as read
+        await Notification.updateMany(
+          { userId: user._id, read: false },
+          { $set: { read: true } }
+        );
+      } else if (notificationIds && Array.isArray(notificationIds)) {
+        // Mark specific notifications as read
+        await Notification.updateMany(
+          { 
+            userId: user._id, 
+            _id: { $in: notificationIds.map(id => new mongoose.Types.ObjectId(id)) },
+            read: false
+          },
+          { $set: { read: true } }
+        );
+      }
+      
+      // Get updated notifications
+      const updatedNotifications = await Notification.find({ userId: user._id })
+        .sort({ createdAt: -1 })
+        .limit(50);
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Notifications updated successfully',
+        notifications: updatedNotifications
+      });
+    }
+    
+    return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
-    console.error('Notification preferences update error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Notification handling error:', error);
+    return res.status(500).json({ error: 'Internal server error', details: (error as Error).message });
   }
 }

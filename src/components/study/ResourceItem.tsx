@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from 'react';
-import { FileText, Video, Link as LinkIcon, Eye, Download, Clock, ExternalLink, ThumbsUp, MessageSquare, Send } from 'lucide-react';
+import { FileText, Video, Link as LinkIcon, Eye, Download, Clock, ThumbsUp, MessageSquare, Bookmark, Send } from 'lucide-react';
 import { FacultyResource } from '../../types/faculty';
 import { DocumentViewer } from '../document/DocumentViewer';
 import { toast } from 'react-hot-toast';
@@ -11,30 +12,55 @@ interface ResourceItemProps {
 }
 
 export const ResourceItem = ({ resource }: ResourceItemProps) => {
-  const [showPreview, setShowPreview] = useState(false);
   const [showDocViewer, setShowDocViewer] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<any[]>([]);
   const [isLiked, setIsLiked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [likesCount, setLikesCount] = useState(resource.stats?.likes || 0);
   const { user } = useAuth();
   
+  // Check if resource is liked and bookmarked on component mount
   useEffect(() => {
     const checkLikeStatus = async () => {
-      if (!user || !resource.id) return;
+      if (!user) return;
       
       try {
-        const response = await api.get(`/api/resources/${resource.id}/like-status`);
-        setIsLiked(response.data.isLiked);
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        // Check like status
+        const likeResponse = await fetch(`/api/resources/${resource.id || resource._id}/like-status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (likeResponse.ok) {
+          const likeData = await likeResponse.json();
+          setIsLiked(likeData.isLiked);
+        }
+        
+        // Check bookmark status
+        const bookmarkResponse = await fetch(`/api/resources/${resource.id || resource._id}/bookmark-status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (bookmarkResponse.ok) {
+          const bookmarkData = await bookmarkResponse.json();
+          setIsBookmarked(bookmarkData.isBookmarked);
+        }
       } catch (error) {
-        console.error('Failed to check like status:', error);
+        console.error('Error checking resource status:', error);
       }
     };
     
     checkLikeStatus();
-  }, [resource.id, user]);
+  }, [resource, user]);
   
   const getIcon = () => {
     switch (resource.type) {
@@ -49,23 +75,49 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     }
   };
   
-  const handleDownload = () => {
-    if (resource.type === 'link' && resource.link) {
-      // Open link in new tab
-      window.open(resource.link, '_blank');
-    } else if (resource.fileContent || resource.fileUrl) {
-      // For documents, show the document viewer instead of downloading
-      setShowDocViewer(true);
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    
+    try {
+      // Update both view and download stats
+      if (resource.id || resource._id) {
+        await updateResourceStats('view');
+        await updateResourceStats('download');
+      }
       
-      // Update view/download count
-      updateResourceStats('download');
-    } else {
-      console.error('No file content or URL available for this resource');
-      toast.error('Sorry, this file cannot be opened. It may have been corrupted during upload.');
+      if (resource.fileUrl) {
+        // Direct download - don't show document viewer
+        const a = document.createElement('a');
+        a.href = resource.fileUrl;
+        a.download = resource.fileName || resource.title || 'download';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else if (resource.type === 'link' && resource.link) {
+        // If it's a link resource, open the link
+        window.open(resource.link, '_blank');
+      } else {
+        toast.error('No file or link available for download');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download resource');
     }
   };
   
-  const updateResourceStats = async (action: 'view' | 'download' | 'like' | 'comment') => {
+  const handleView = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    
+    // Update view count
+    if (resource.id || resource._id) {
+      await updateResourceStats('view');
+    }
+    
+    // Show document viewer
+    setShowDocViewer(true);
+  };
+  
+  const updateResourceStats = async (action: 'view' | 'download' | 'like' | 'comment' | 'bookmark') => {
     if (!user) {
       toast.error('Please log in to interact with resources');
       return null;
@@ -74,14 +126,16 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     try {
       // Update stats in memory
       if (window.sharedResources) {
-        const resourceIndex = window.sharedResources.findIndex(r => r.id === resource.id);
+        const resourceIndex = window.sharedResources.findIndex(r => 
+          (r.id === resource.id) || (r._id === resource._id));
+          
         if (resourceIndex !== -1) {
           if (action === 'download') {
             window.sharedResources[resourceIndex].stats.downloads += 1;
           } else if (action === 'view') {
             window.sharedResources[resourceIndex].stats.views += 1;
           } else if (action === 'like') {
-            window.sharedResources[resourceIndex].stats.likes += isLiked ? -1 : 1;
+            // Don't modify the count here, we'll use the server's response
           } else if (action === 'comment') {
             window.sharedResources[resourceIndex].stats.comments += 1;
           }
@@ -91,7 +145,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       
       // Update stats in MongoDB
       const response = await api.post('/api/resources/stats', {
-        resourceId: resource.id,
+        resourceId: resource.id || resource._id,
         action: action,
         userId: user._id
       });
@@ -101,15 +155,6 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     } catch (error) {
       console.error(`Failed to update resource ${action} stats:`, error);
       return null;
-    }
-  };
-  
-  const handleView = () => {
-    setShowPreview(!showPreview);
-    
-    // Update view count
-    if (!showPreview) {
-      updateResourceStats('view');
     }
   };
   
@@ -123,7 +168,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       setIsLoading(true);
       // We need to include the token in the headers
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/resources/${resource.id}/like`, {
+      const response = await fetch(`/api/resources/${resource.id || resource._id}/like`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,9 +183,10 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       
       const data = await response.json();
       
-      setIsLiked(!isLiked);
-      setLikesCount(data.likesCount || (isLiked ? likesCount - 1 : likesCount + 1));
-      toast.success(isLiked ? 'Removed like' : 'Added like');
+      // Update state with the new like status and count from server
+      setIsLiked(data.isLiked);
+      setLikesCount(data.likesCount);
+      toast.success(data.isLiked ? 'Added like' : 'Removed like');
       
       // Update the stats
       updateResourceStats('like');
@@ -152,14 +198,69 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     }
   };
   
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!user) {
+      toast.error('Please log in to bookmark resources');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Toggle bookmark status
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/resources/${resource.id || resource._id}/bookmark`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Bookmark error data:', errorData);
+        throw new Error(`Error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Bookmark response:', data);
+      
+      // Update local state based on server response
+      setIsBookmarked(data.bookmarked);
+      toast.success(data.bookmarked ? 'Resource bookmarked' : 'Removed from bookmarks');
+      
+      // Update the stats
+      updateResourceStats('bookmark');
+    } catch (error) {
+      console.error('Failed to bookmark resource:', error);
+      toast.error('Failed to update bookmark status');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   const handleToggleComments = async () => {
     setShowComments(!showComments);
     
     if (!showComments && comments.length === 0) {
       try {
         setIsLoading(true);
-        const response = await api.get(`/api/resources/${resource.id}/comments`);
-        setComments(response.data.comments || []);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/resources/${resource.id || resource._id}/comments`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setComments(data.comments || []);
       } catch (error) {
         console.error('Failed to fetch comments:', error);
         toast.error('Failed to load comments');
@@ -180,7 +281,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       setIsLoading(true);
       // Use fetch with explicit headers instead of axios
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/resources/${resource.id}/comments`, {
+      const response = await fetch(`/api/resources/${resource.id || resource._id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -211,93 +312,81 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
   };
   
   return (
-    <div className="p-3 hover:bg-gray-50">
-      <div className="flex items-start">
-        <div className="p-2 bg-gray-100 rounded-md">
-          {getIcon()}
-        </div>
-        <div className="ml-3 flex-1">
-          <h4 className="font-medium text-gray-800 cursor-pointer hover:text-indigo-600" onClick={handleView}>
-            {resource.title}
-          </h4>
-          <p className="text-sm text-gray-600 line-clamp-1">{resource.description}</p>
-          
-          <div className="flex items-center text-xs text-gray-500 mt-2">
-            <div className="flex items-center">
-              <Clock className="h-3 w-3 mr-1" />
-              <span>{new Date(resource.uploadDate).toLocaleDateString()}</span>
-            </div>
-            <span className="mx-2">•</span>
-            <div className="flex items-center">
-              <Eye className="h-3 w-3 mr-1" />
-              <span>{resource.stats.views} views</span>
-            </div>
-            <span className="mx-2">•</span>
-            <div className="flex items-center">
-              <Download className="h-3 w-3 mr-1" />
-              <span>{resource.stats.downloads}</span>
+    <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:border-indigo-200 hover:shadow-lg transition-all h-full flex flex-col">
+      <div className="p-4 flex-1">
+        <div className="flex items-start">
+          <div className="bg-indigo-100 p-2 rounded-lg mr-3">
+            {getIcon()}
+          </div>
+          <div className="flex-1">
+            <h4 className="font-medium text-gray-800 line-clamp-2 mb-1">{resource.title}</h4>
+            <p className="text-sm text-gray-600 line-clamp-2 mb-2">{resource.description}</p>
+            <div className="flex items-center text-xs text-gray-500 mt-2">
+              <div className="flex items-center">
+                <Clock className="h-3 w-3 mr-1" />
+                <span>{new Date(resource.uploadDate).toLocaleDateString()}</span>
+              </div>
+              <span className="mx-2">•</span>
+              <div className="flex items-center">
+                <Eye className="h-3 w-3 mr-1" />
+                <span>{resource.stats.views} views</span>
+              </div>
             </div>
           </div>
-          
-          <div className="flex items-center mt-3 space-x-4">
-            <button 
-              className={`flex items-center text-sm ${isLiked ? 'text-blue-600' : 'text-gray-600'} hover:text-blue-700`}
-              onClick={handleLike}
-              disabled={isLoading}
-            >
-              <ThumbsUp className={`h-4 w-4 mr-1 ${isLiked ? 'fill-blue-600' : ''}`} />
-              <span>{likesCount}</span>
-            </button>
-            
-            <button 
-              className="flex items-center text-sm text-gray-600 hover:text-blue-700"
-              onClick={handleToggleComments}
-            >
-              <MessageSquare className="h-4 w-4 mr-1" />
-              <span>{comments.length || resource.stats.comments || 0}</span>
-            </button>
-          </div>
         </div>
-        <button 
-          className="ml-2 p-2 text-indigo-600 hover:text-indigo-700"
-          onClick={handleDownload}
-          title={resource.type === 'link' ? 'Open Link' : 'View/Download'}
-        >
-          {resource.type === 'link' ? <ExternalLink className="h-5 w-5" /> : <Download className="h-5 w-5" />}
-        </button>
       </div>
       
-      {showPreview && (
-        <div className="mt-3 p-3 border rounded-lg">
-          {resource.type === 'document' && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">
-                {resource.fileName || 'Document'}
-              </span>
-              <button 
-                className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-                onClick={handleDownload}
-              >
-                Open Document
-              </button>
-            </div>
-          )}
-          {resource.type === 'link' && resource.link && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 truncate flex-1">{resource.link}</span>
-              <button 
-                className="ml-3 text-indigo-600 hover:text-indigo-700 text-sm font-medium whitespace-nowrap"
-                onClick={handleDownload}
-              >
-                Open Link
-              </button>
-            </div>
-          )}
+      <div className="bg-gray-50 p-3 flex justify-between items-center border-t border-gray-100">
+        <span className="text-xs text-gray-600">
+          {resource.subject || 'No subject'}
+        </span>
+        
+        <div className="flex space-x-3">
+          <button 
+            onClick={handleLike}
+            className={`text-sm ${isLiked ? 'text-blue-600' : 'text-gray-600'} hover:text-blue-700 flex items-center`}
+            disabled={isLoading}
+          >
+            <ThumbsUp className={`h-4 w-4 ${isLiked ? 'fill-blue-600' : ''}`} />
+            <span className="ml-1">{likesCount}</span>
+          </button>
+          
+          <button 
+            onClick={handleToggleComments}
+            className="text-gray-600 hover:text-blue-700 flex items-center"
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="ml-1">{comments.length || resource.stats.comments || 0}</span>
+          </button>
+          
+          <button 
+            onClick={handleBookmark}
+            className={`${isBookmarked ? 'text-yellow-600' : 'text-gray-600'} hover:text-yellow-600`}
+            title={isBookmarked ? "Remove bookmark" : "Bookmark"}
+          >
+            <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-yellow-500' : ''}`} />
+          </button>
+          
+          <button 
+            onClick={handleView}
+            className="text-indigo-600 hover:text-indigo-700"
+            title="View document"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          
+          <button 
+            onClick={handleDownload}
+            className="text-indigo-600 hover:text-indigo-700"
+            title="Download"
+          >
+            <Download className="h-4 w-4" />
+          </button>
         </div>
-      )}
+      </div>
       
       {showComments && (
-        <div className="mt-3 p-3 border rounded-lg bg-gray-50">
+        <div className="p-3 border-t border-gray-100 bg-gray-50">
           <h5 className="font-medium text-gray-700 mb-2">Comments</h5>
           
           <div className="flex items-center mb-4">
@@ -329,7 +418,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
                   <div className="flex justify-between items-start">
                     <div className="flex items-start">
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-semibold text-sm">
-                        {comment.author.fullName.charAt(0)}
+                        {comment.author?.fullName?.charAt(0) || 'A'}
                       </div>
                       <div className="ml-2">
                         <p className="text-sm font-medium">{comment.author?.fullName || 'Anonymous'}</p>
@@ -347,13 +436,14 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
         </div>
       )}
       
-      {showDocViewer && resource.fileUrl && (
+      {showDocViewer && (
         <DocumentViewer 
-          fileUrl={resource.fileUrl} 
-          fileName={resource.fileName || `${resource.title}.pdf`}
-          onClose={() => setShowDocViewer(false)}
+          fileUrl={resource.fileUrl || ''} 
+          fileName={resource.fileName || resource.title || 'Document'} 
+          onClose={() => setShowDocViewer(false)} 
         />
       )}
     </div>
   );
 };
+

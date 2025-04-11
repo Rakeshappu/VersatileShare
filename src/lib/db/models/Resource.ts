@@ -1,4 +1,4 @@
-
+//src\lib\db\models\Resource.ts
 import mongoose from 'mongoose';
 import { getAllCategoryIds, getStandardizedCategory } from '../../../utils/placementCategoryUtils';
 
@@ -159,11 +159,6 @@ ResourceSchema.pre('save', function(next) {
     };
   }
   
-  // Initialize dailyViews if it doesn't exist
-  if (!this.stats.dailyViews) {
-    this.stats.dailyViews = [];
-  }
-  
   // Initialize arrays if they don't exist
   if (!this.likedBy) this.likedBy = [];
   if (!this.comments) this.comments = [];
@@ -187,5 +182,15 @@ ResourceSchema.set('toJSON', {
   }
 });
 
-// Create the model
-export const Resource = mongoose.models.Resource || mongoose.model('Resource', ResourceSchema);
+// Safe export pattern for Next.js and Mongoose
+let Resource;
+
+try {
+  // Check if the model already exists to prevent recompilation
+  Resource = mongoose.models.Resource || mongoose.model('Resource', ResourceSchema);
+} catch (error) {
+  // If model doesn't exist yet, create it
+  Resource = mongoose.model('Resource', ResourceSchema);
+}
+
+export { Resource };

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { SearchBar } from '../../components/search/SearchBar';
 import { SubjectFolder } from '../../components/study/SubjectFolder';

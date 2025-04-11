@@ -109,8 +109,30 @@ async function deleteResource(id: string, req: NextApiRequest, res: NextApiRespo
 
 async function updateResource(id: string, req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Implementation for updating resource
-    return res.status(501).json({ error: 'Not implemented yet' });
+    // Basic implementation for updating resource
+    const { title, description, subject, semester } = req.body;
+    
+    const updatedResource = await Resource.findByIdAndUpdate(
+      id,
+      { 
+        title, 
+        description, 
+        subject, 
+        semester,
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+    
+    if (!updatedResource) {
+      return res.status(404).json({ error: 'Resource not found' });
+    }
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Resource updated successfully',
+      resource: updatedResource
+    });
   } catch (error) {
     console.error('Error updating resource:', error);
     return res.status(500).json({ error: getErrorMessage(error) });
