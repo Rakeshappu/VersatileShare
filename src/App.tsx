@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Header } from './components/layout/Header';
@@ -16,6 +17,8 @@ import { SettingsPage as StudentSettingsPage } from './pages/settings/SettingsPa
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import PlacementResources from './pages/placement/PlacementResources';
 import { SubjectDetailPage } from './pages/study/SubjectDetailPage';
+import UsersManagement from './pages/admin/UsersManagement';
+import AllResources from './pages/admin/AllResources';
 
 // Import faculty pages
 import { AnalyticsPage } from './pages/faculty/AnalyticsPage';
@@ -328,10 +331,7 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                        <h1 className="text-2xl font-bold mb-6">Manage Users</h1>
-                        <p>This is the admin user management page.</p>
-                      </div>
+                      <UsersManagement />
                     </div>
                   </div>
                 </PrivateRoute>
@@ -345,38 +345,11 @@ function App() {
                     <Sidebar />
                     <div className="flex-1">
                       <Header />
-                      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                        <h1 className="text-2xl font-bold mb-6">All Resources</h1>
-                        <p>This is the admin resource management page.</p>
-                      </div>
-                    </div>
-                  </div>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/admin/starred"
-              element={
-                <PrivateRoute role="admin">
-                  <div className="flex">
-                    <Sidebar />
-                    <div className="flex-1">
-                      <Header />
-                      <StudentStarredPage />
-                    </div>
-                  </div>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/admin/downloads"
-              element={
-                <PrivateRoute role="admin">
-                  <div className="flex">
-                    <Sidebar />
-                    <div className="flex-1">
-                      <Header />
-                      <DownloadsPage />
+                      <AllResources 
+                        onViewAnalytics={(resourceId) => {
+                          window.location.href = `/admin/resources/${resourceId}/analytics`;
+                        }}
+                      />
                     </div>
                   </div>
                 </PrivateRoute>

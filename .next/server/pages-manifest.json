@@ -4,8 +4,9 @@
   "/_document": "pages/_document.js",
   "/api/auth/login": "pages/api/auth/login.js",
   "/api/user/notifications": "pages/api/user/notifications.js",
-  "/api/resources": "pages/api/resources.js",
-  "/404": "pages/404.js",
   "/api/db/status": "pages/api/db/status.js",
-  "/api/subject-folders": "pages/api/subject-folders.js"
+  "/api/resources": "pages/api/resources.js",
+  "/api/subject-folders": "pages/api/subject-folders.js",
+  "/404": "pages/404.js",
+  "/api/auth/me": "pages/api/auth/me.js"
 }

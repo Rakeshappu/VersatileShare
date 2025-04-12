@@ -89,8 +89,6 @@ export const Sidebar = () => {
       <SidebarLink icon={<Upload />} text="Upload Content" path="/admin/upload" active={isActive('/admin/upload')} />
       <SidebarLink icon={<Users />} text="Manage Users" path="/admin/users" active={isActive('/admin/users')} />
       <SidebarLink icon={<Database />} text="All Resources" path="/admin/resources" active={isActive('/admin/resources')} />
-      <SidebarLink icon={<Star />} text="Starred" path="/admin/starred" active={isActive('/admin/starred')} />
-      <SidebarLink icon={<Download />} text="Downloads" path="/admin/downloads" active={isActive('/admin/downloads')} />
       <SidebarLink icon={<Trash />} text="Trash" path="/admin/trash" active={isActive('/admin/trash')} />
     </>
   );

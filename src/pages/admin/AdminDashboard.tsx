@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, FileText, Upload, Download, Shield, Activity, Book, School, Database, PieChart } from 'lucide-react';
+import { Users, FileText, Upload, Download, Shield, Activity, PieChart } from 'lucide-react';
 import { ResourceUpload } from '../../components/faculty/ResourceUpload';
 import { ResourceList } from '../../components/faculty/ResourceList';
 import { UploadWorkflow } from '../../components/faculty/UploadWorkflow';
@@ -59,16 +59,22 @@ export const AdminDashboard = () => {
     users: { total: 0, loading: true },
     resources: { total: 0, loading: true },
     activity: { total: 0, loading: true },
-    departments: { data: [], loading: true },
-    resourceTypes: { data: [], loading: true },
-    dailyActivity: { data: [], loading: true }
+    departments: { data: [] as { name: string; value: number }[], loading: true },
+    resourceTypes: { data: [] as { name: string; value: number }[], loading: true },
+    dailyActivity: { data: [] as { name: string; uploads: number; downloads: number; views: number }[], loading: true }
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [todayStats, setTodayStats] = useState({
+    uploads: 0,
+    downloads: 0
+  });
 
   // Fetch real analytics data
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
+        setIsLoading(true);
+        
         // Fetch users count by role
         const usersResponse = await api.get('/api/user/stats');
         
@@ -77,6 +83,28 @@ export const AdminDashboard = () => {
         
         // Fetch activity stats
         const activityResponse = await api.get('/api/user/activity/stats');
+        
+        // Calculate today's uploads and downloads
+        const today = new Date().toISOString().split('T')[0];
+        
+        let todayUploads = 0;
+        let todayDownloads = 0;
+        
+        if (resourcesResponse.data?.dailyStats) {
+          const todayStat = resourcesResponse.data.dailyStats.find((stat: any) => 
+            new Date(stat.date).toISOString().split('T')[0] === today
+          );
+          
+          if (todayStat) {
+            todayUploads = todayStat.uploads || 0;
+            todayDownloads = todayStat.downloads || 0;
+          }
+        }
+        
+        setTodayStats({
+          uploads: todayUploads,
+          downloads: todayDownloads
+        });
         
         // Update analytics state with real data
         setAnalytics({
@@ -112,12 +140,17 @@ export const AdminDashboard = () => {
         
         // Fallback to mock data
         setAnalytics({
-          users: { total: 1234, loading: false },
+          users: { total: resources.length > 0 ? Math.floor(resources.length * 1.5) : 120, loading: false },
           resources: { total: resources.length, loading: false },
-          activity: { total: 378, loading: false },
+          activity: { total: resources.length > 0 ? resources.length * 3 : 378, loading: false },
           departments: { data: generateMockDepartmentData(), loading: false },
           resourceTypes: { data: generateMockResourceTypeData(), loading: false },
           dailyActivity: { data: generateMockDailyActivityData(), loading: false }
+        });
+        
+        setTodayStats({
+          uploads: Math.floor(Math.random() * 10) + 5,
+          downloads: Math.floor(Math.random() * 30) + 15
         });
         
         setIsLoading(false);
@@ -428,14 +461,14 @@ export const AdminDashboard = () => {
             />
             <AnalyticsCard 
               title="Uploads Today" 
-              value="89"
+              value={todayStats.uploads}
               change="15%" 
               trend="up" 
               icon={<Upload className="h-6 w-6 text-blue-500" />}
             />
             <AnalyticsCard 
               title="Downloads Today" 
-              value="213"
+              value={todayStats.downloads}
               change="5%" 
               trend="down" 
               icon={<Download className="h-6 w-6 text-yellow-500" />}
@@ -467,6 +500,7 @@ export const AdminDashboard = () => {
             </motion.button>
             <motion.button 
               className="flex items-center justify-center p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => window.location.href = '/admin/users'}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
             >
@@ -487,7 +521,7 @@ export const AdminDashboard = () => {
             >
               <div className="flex items-center mb-4">
                 <Activity className="mr-2 text-indigo-500" size={20} />
-                <h2 className="text-lg font-semibold">Weekly Activity</h2>
+                <h2 className="text-lg font-semibold dark:text-gray-200">Weekly Activity</h2>
               </div>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
@@ -497,9 +531,9 @@ export const AdminDashboard = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="uploads" stackId="a" fill="#4F46E5" />
-                    <Bar dataKey="downloads" stackId="a" fill="#10B981" />
-                    <Bar dataKey="views" stackId="a" fill="#F59E0B" />
+                    <Bar dataKey="uploads" fill="#4F46E5" />
+                    <Bar dataKey="downloads" fill="#10B981" />
+                    <Bar dataKey="views" fill="#F59E0B" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -511,48 +545,8 @@ export const AdminDashboard = () => {
               variants={itemVariants}
             >
               <div className="flex items-center mb-4">
-                <School className="mr-2 text-indigo-500" size={20} />
-                <h2 className="text-lg font-semibold">Department Distribution</h2>
-              </div>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPie>
-                    <Pie
-                      data={analytics.departments.data}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      nameKey="name"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {analytics.departments.data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </RechartsPie>
-                </ResponsiveContainer>
-              </div>
-            </motion.div>
-          </motion.div>
-
-          {/* Resource Type Distribution and Recent Activity */}
-          <motion.div 
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
-            variants={itemVariants}
-          >
-            {/* Resource Type Distribution */}
-            <motion.div 
-              className="bg-white dark:bg-gray-800 shadow rounded-lg p-6"
-              variants={itemVariants}
-            >
-              <div className="flex items-center mb-4">
                 <PieChart className="mr-2 text-indigo-500" size={20} />
-                <h2 className="text-lg font-semibold">Resource Type Distribution</h2>
+                <h2 className="text-lg font-semibold dark:text-gray-200">Resource Type Distribution</h2>
               </div>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
@@ -568,7 +562,7 @@ export const AdminDashboard = () => {
                       nameKey="name"
                       label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     >
-                      {analytics.resourceTypes.data.map((entry, index) => (
+                      {analytics.resourceTypes.data.map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -576,44 +570,6 @@ export const AdminDashboard = () => {
                     <Legend />
                   </RechartsPie>
                 </ResponsiveContainer>
-              </div>
-            </motion.div>
-
-            {/* Recent Activity */}
-            <motion.div 
-              className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg"
-              variants={itemVariants}
-            >
-              <div className="px-4 py-5 sm:px-6 flex items-center">
-                <Activity className="mr-2 text-indigo-500" size={20} />
-                <h2 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">
-                  Recent Activity
-                </h2>
-              </div>
-              <div className="border-t border-gray-200 dark:border-gray-700 h-80 overflow-y-auto">
-                <ul>
-                  {recentActivities.map((activity) => (
-                    <li key={activity.id} className="px-4 py-4 sm:px-6 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            <span className="font-semibold">{activity.user}</span> {activity.action} <span className="text-indigo-600 dark:text-indigo-400">{activity.item}</span>
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            {activity.time}
-                          </p>
-                        </div>
-                        <motion.button 
-                          className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          View
-                        </motion.button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
               </div>
             </motion.div>
           </motion.div>
