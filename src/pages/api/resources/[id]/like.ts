@@ -48,6 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get the like action - if not provided, we'll toggle
     const { like } = req.body;
     
+    console.log(`Like request for resource ${id} by user ${decoded.userId}, action: ${like !== undefined ? like : 'toggle'}`);
+    
     // Find resource
     const resource = await Resource.findById(id);
     
@@ -76,34 +78,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Find if user has already liked this resource
     const userLikedIndex = resource.likedBy.findIndex(
-      (id) => id.toString() === decoded.userId
+      (id: any) => id.toString() === decoded.userId
     );
     
     const isLiked = userLikedIndex !== -1;
     const shouldLike = like !== undefined ? like : !isLiked;
     
-    let likesCount = resource.stats.likes || 0;
+    console.log(`User ${decoded.userId} has ${isLiked ? 'already liked' : 'not liked'} this resource.`);
+    console.log(`Action to take: ${shouldLike ? 'like' : 'unlike'}`);
+    
+    // Calculate the exact like count from the likedBy array
+    let likesCount = resource.likedBy.length;
     
     if (shouldLike && !isLiked) {
       // Add user to likedBy if not already present
       resource.likedBy.push(userId);
       likesCount += 1;
-      resource.stats.likes = likesCount;
+      
+      console.log(`Adding user ${decoded.userId} to likedBy array. New count: ${likesCount}`);
       
       // Send notification to faculty if a student likes their resource
       // Only send notification when a resource is liked, not unliked
       if (resource.uploadedBy && resource.uploadedBy.toString() !== decoded.userId) {
-        notifyFacultyOfInteraction(id, decoded.userId, 'like');
+        try {
+          await notifyFacultyOfInteraction(id, decoded.userId, 'like');
+        } catch (notifyError) {
+          console.error('Error sending faculty notification:', notifyError);
+          // Continue even if notification fails
+        }
       }
     } else if (!shouldLike && isLiked) {
       // Remove user from likedBy
       resource.likedBy.splice(userLikedIndex, 1);
       likesCount = Math.max(0, likesCount - 1); // Prevent negative likes
-      resource.stats.likes = likesCount;
+      
+      console.log(`Removing user ${decoded.userId} from likedBy array. New count: ${likesCount}`);
+    } else {
+      console.log(`No change needed for like status. Current count: ${likesCount}`);
     }
+    
+    // Update the stats.likes to match the actual count of likedBy
+    resource.stats.likes = likesCount;
     
     // Save the updated resource
     await resource.save();
+    
+    console.log(`Resource like status updated. Final count: ${likesCount}, User liked: ${shouldLike}`);
     
     return res.status(200).json({ 
       success: true,
@@ -113,6 +133,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('Error updating like status:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error', details: (error as Error)?.message });
   }
 }

@@ -62,7 +62,7 @@ export const SubjectDetailPage = () => {
           Back to All Subjects
         </button>
         
-        <h1 className="text-2xl font-bold mt-4">{subject}</h1>
+        <h1 className="text-2xl font-bold mt-4 dark:text-gray-200">{subject}</h1>
         <p className="text-gray-500">
           {resources.length} resource{resources.length !== 1 ? 's' : ''} available
         </p>

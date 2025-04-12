@@ -9,9 +9,10 @@ import api from '../../services/api';
 
 interface ResourceItemProps {
   resource: FacultyResource;
+  onLikeUpdate?: (resourceId: string, isLiked: boolean, likesCount: number) => void;
 }
 
-export const ResourceItem = ({ resource }: ResourceItemProps) => {
+export const ResourceItem = ({ resource, onLikeUpdate }: ResourceItemProps) => {
   const [showDocViewer, setShowDocViewer] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -21,6 +22,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [likesCount, setLikesCount] = useState(resource.stats?.likes || 0);
   const { user } = useAuth();
+  const resourceId = resource.id || resource._id;
   
   // Check if resource is liked and bookmarked on component mount
   useEffect(() => {
@@ -32,7 +34,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
         if (!token) return;
         
         // Check like status
-        const likeResponse = await fetch(`/api/resources/${resource.id || resource._id}/like-status`, {
+        const likeResponse = await fetch(`/api/resources/${resourceId}/like-status`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -44,7 +46,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
         }
         
         // Check bookmark status
-        const bookmarkResponse = await fetch(`/api/resources/${resource.id || resource._id}/bookmark-status`, {
+        const bookmarkResponse = await fetch(`/api/resources/${resourceId}/bookmark-status`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -60,7 +62,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     };
     
     checkLikeStatus();
-  }, [resource, user]);
+  }, [resource, user, resourceId]);
   
   const getIcon = () => {
     switch (resource.type) {
@@ -75,12 +77,22 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     }
   };
   
+  const handleResourceOpen = async () => {
+    // Update view count
+    if (resourceId) {
+      await updateResourceStats('view');
+    }
+    
+    // Show document viewer
+    setShowDocViewer(true);
+  };
+  
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
     
     try {
       // Update both view and download stats
-      if (resource.id || resource._id) {
+      if (resourceId) {
         await updateResourceStats('view');
         await updateResourceStats('download');
       }
@@ -109,12 +121,17 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     e.stopPropagation(); // Prevent card click
     
     // Update view count
-    if (resource.id || resource._id) {
+    if (resourceId) {
       await updateResourceStats('view');
     }
     
     // Show document viewer
     setShowDocViewer(true);
+  };
+
+  // Close document viewer
+  const handleCloseDocViewer = () => {
+    setShowDocViewer(false);
   };
   
   const updateResourceStats = async (action: 'view' | 'download' | 'like' | 'comment' | 'bookmark') => {
@@ -145,7 +162,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       
       // Update stats in MongoDB
       const response = await api.post('/api/resources/stats', {
-        resourceId: resource.id || resource._id,
+        resourceId: resourceId,
         action: action,
         userId: user._id
       });
@@ -168,7 +185,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       setIsLoading(true);
       // We need to include the token in the headers
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/resources/${resource.id || resource._id}/like`, {
+      const response = await fetch(`/api/resources/${resourceId}/like`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,6 +207,11 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       
       // Update the stats
       updateResourceStats('like');
+      
+      // Notify parent component if callback provided
+      if (onLikeUpdate) {
+        onLikeUpdate(resourceId, data.isLiked, data.likesCount);
+      }
     } catch (error) {
       console.error('Failed to like resource:', error);
       toast.error('Failed to update like status');
@@ -211,7 +233,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       
       // Toggle bookmark status
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/resources/${resource.id || resource._id}/bookmark`, {
+      const response = await fetch(`/api/resources/${resourceId}/bookmark`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,14 +264,25 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
     }
   };
   
-  const handleToggleComments = async () => {
+  // FIX: Use data attribute to guarantee unique comment section for each resource
+  const handleToggleComments = async (e: React.MouseEvent, currentResourceId: string) => {
+    e.stopPropagation(); // Prevent card click
+    
+    // Check if the clicked button matches this resource
+    const clickedEl = e.currentTarget as HTMLElement;
+    const clickedResourceId = clickedEl.getAttribute('data-resource-id');
+    
+    if (clickedResourceId !== currentResourceId) {
+      return;
+    }
+    
     setShowComments(!showComments);
     
     if (!showComments && comments.length === 0) {
       try {
         setIsLoading(true);
         const token = localStorage.getItem('token');
-        const response = await fetch(`/api/resources/${resource.id || resource._id}/comments`, {
+        const response = await fetch(`/api/resources/${resourceId}/comments`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -281,7 +314,7 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       setIsLoading(true);
       // Use fetch with explicit headers instead of axios
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/resources/${resource.id || resource._id}/comments`, {
+      const response = await fetch(`/api/resources/${resourceId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -312,7 +345,10 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
   };
   
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:border-indigo-200 hover:shadow-lg transition-all h-full flex flex-col">
+    <div 
+      className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:border-indigo-200 hover:shadow-lg transition-all h-full flex flex-col cursor-pointer"
+      onClick={handleResourceOpen}
+    >
       <div className="p-4 flex-1">
         <div className="flex items-start">
           <div className="bg-indigo-100 p-2 rounded-lg mr-3">
@@ -343,7 +379,10 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
         
         <div className="flex space-x-3">
           <button 
-            onClick={handleLike}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLike();
+            }}
             className={`text-sm ${isLiked ? 'text-blue-600' : 'text-gray-600'} hover:text-blue-700 flex items-center`}
             disabled={isLoading}
           >
@@ -352,8 +391,9 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
           </button>
           
           <button 
-            onClick={handleToggleComments}
+            onClick={(e) => handleToggleComments(e, resourceId)}
             className="text-gray-600 hover:text-blue-700 flex items-center"
+            data-resource-id={resourceId}
           >
             <MessageSquare className="h-4 w-4" />
             <span className="ml-1">{comments.length || resource.stats.comments || 0}</span>
@@ -386,7 +426,11 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
       </div>
       
       {showComments && (
-        <div className="p-3 border-t border-gray-100 bg-gray-50">
+        <div 
+          className="p-3 border-t border-gray-100 bg-gray-50"
+          onClick={(e) => e.stopPropagation()} // Prevent clicks in comment section from opening resource
+          data-resource-id={resourceId}
+        >
           <h5 className="font-medium text-gray-700 mb-2">Comments</h5>
           
           <div className="flex items-center mb-4">
@@ -440,10 +484,9 @@ export const ResourceItem = ({ resource }: ResourceItemProps) => {
         <DocumentViewer 
           fileUrl={resource.fileUrl || ''} 
           fileName={resource.fileName || resource.title || 'Document'} 
-          onClose={() => setShowDocViewer(false)} 
+          onClose={handleCloseDocViewer} 
         />
       )}
     </div>
   );
 };
-

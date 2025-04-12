@@ -1,12 +1,16 @@
 import { User, Activity, Resource } from '../types';
 
 export const currentUser: User = {
-  id: '1',
-  name: 'Varun Bharadwaj',
+  _id: '1',
+  fullName: 'Varun Bharadwaj',
+  email: '',
+  role:'student',
   semester: 7,
   department: 'Information Science & Engineering',
+  phoneNumber: '',
+  isEmailVerified: true,
   streak: 5,
-  lastActive: '2024-03-20',
+  // lastActive: '2024-03-20',
   avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'
 };
 
@@ -24,8 +28,9 @@ export const resources: Resource[] = [
     id: '1',
     title: 'Data Structures and Algorithms',
     description: 'Comprehensive guide to DSA concepts',
-    type: 'pdf',
+    type: 'document',
     semester: 4,
+    department: '',
     subject: 'Data Structures',
     uploadedBy: 'Prof. Smith',
     views: 1200,
@@ -39,6 +44,7 @@ export const resources: Resource[] = [
     description: 'Essential system design patterns and examples',
     type: 'video',
     semester: 4,
+    department: '',
     subject: 'Software Engineering',
     uploadedBy: 'Prof. Johnson',
     views: 800,
@@ -52,6 +58,7 @@ export const resources: Resource[] = [
     description: 'Complete DBMS concepts and SQL queries',
     type: 'document',
     semester: 4,
+    department: '',
     subject: 'Database Management',
     uploadedBy: 'Prof. Davis',
     views: 950,
@@ -63,8 +70,9 @@ export const resources: Resource[] = [
     id: '4',
     title: 'Competitive Programming Guide',
     description: 'Advanced algorithms and problem-solving techniques',
-    type: 'pdf',
+    type: 'document',
     semester: 4,
+    department: '',
     subject: 'Competitive Programming',
     uploadedBy: 'Prof. Wilson',
     views: 1500,
@@ -76,31 +84,30 @@ export const resources: Resource[] = [
 
 export const recentActivities: Activity[] = [
   {
-    id: '1',
-    type: 'complete',
-    description: 'Completed DSA Practice Set',
+    _id: '1',
+    userId: '',
+    type: 'upload',
+    resourceId: '',
+    resource: {
+      title: '',
+      type: '',
+    },
+    message: '',
     timestamp: '2024-03-20T10:30:00',
-    points: 50
+    
   },
   {
-    id: '2',
-    type: 'streak',
-    description: '5 Day Learning Streak!',
-    timestamp: '2024-03-20T00:00:00',
-    points: 100
-  },
-  {
-    id: '3',
+    _id: '2',
     type: 'download',
-    description: 'Downloaded System Design Interview Prep',
-    timestamp: '2024-03-19T15:45:00',
-    points: 25
+    userId: '',
+    resourceId: '',
+    resource: {
+      title: '',
+      type: '',
+    },
+    message: '',
+    timestamp: '2024-03-20T00:00:00',
+    
   },
-  {
-    id: '4',
-    type: 'view',
-    description: 'Viewed Database Management Notes',
-    timestamp: '2024-03-19T14:20:00',
-    points: 10
-  }
+  
 ];

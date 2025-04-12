@@ -18,6 +18,7 @@ export const SignupForm = ({ role, onSubmit }: SignupFormProps) => {
     fullName: '',
     email: '',
     password: '',
+    confirmPassword: '',
     department: '',
     phoneNumber: '',
     semester: role === 'student' ? 1 : undefined,

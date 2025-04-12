@@ -88,6 +88,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
   
   // Handle view document button click
   const handleViewDocument = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default behavior
     e.stopPropagation(); // Prevent card click
     
     if (resource.fileUrl) {
@@ -113,6 +114,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
   
   // Handle download button click
   const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default behavior
     e.stopPropagation(); // Prevent card click
     
     setIsDownloading(true);
@@ -148,6 +150,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
   
   // Handle bookmark toggle
   const handleBookmark = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default behavior
     e.stopPropagation(); // Prevent card click
     
     if (!user) {
@@ -185,12 +188,44 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
       toast.error('Failed to update bookmark status');
     }
   };
+
+  // Handle card click to view document
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default behavior
+    
+    // Same as handleViewDocument but without stopPropagation
+    if (resource.fileUrl) {
+      // Count view
+      if (resource._id || resource.id) {
+        updateStats(resource._id || resource.id, 'view');
+      }
+      
+      // Show document viewer
+      setShowDocViewer(true);
+    } else if (resource.type === 'link' && resource.link) {
+      // For links, open in new tab
+      window.open(resource.link, '_blank');
+      
+      // Count view
+      if (resource._id || resource.id) {
+        updateStats(resource._id || resource.id, 'view');
+      }
+    } else {
+      toast.error('No content available to view');
+    }
+  };
+  
+  // Handle close document viewer
+  const handleCloseDocViewer = () => {
+    setShowDocViewer(false);
+  };
   
   return (
     <motion.div
       whileHover={{ y: -5 }}
       transition={{ duration: 0.2 }}
-      className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:border-indigo-200 hover:shadow-lg transition-all h-full flex flex-col"
+      className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:border-indigo-200 hover:shadow-lg transition-all h-full flex flex-col cursor-pointer"
+      onClick={handleCardClick}
     >
       <div className="p-4 flex-1">
         <div className="flex items-start">
@@ -257,7 +292,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
         <DocumentViewer 
           fileUrl={resource.fileUrl} 
           fileName={resource.fileName || resource.title} 
-          onClose={() => setShowDocViewer(false)} 
+          onClose={handleCloseDocViewer} 
         />
       )}
     </motion.div>

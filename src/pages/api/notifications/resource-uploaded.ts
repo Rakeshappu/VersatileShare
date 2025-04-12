@@ -4,7 +4,6 @@ import connectDB from '../../../lib/db/connect';
 import { notifyResourceUpload } from '../../../lib/realtime/socket';
 import jwt from 'jsonwebtoken';
 import { User } from '../../../lib/db/models/User';
-import { Notification } from '../../../lib/db/models/Notification';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Handle CORS preflight
@@ -27,7 +26,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Verify token
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { userId: string };
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { userId: string };
+      if (!decoded || !decoded.userId) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    } catch (tokenError) {
+      console.error('Token verification error:', tokenError);
+      return res.status(401).json({ error: 'Invalid token' });
+    }
     
     // Find user
     const user = await User.findById(decoded.userId);
@@ -45,42 +53,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!resourceId) {
       return res.status(400).json({ error: 'Resource ID is required' });
     }
-     // Find students in the specified semester
-     const targetStudents = await User.find({ 
-      role: 'student',
-      ...(semester ? { semester: semester } : {})
-    });
+    
     console.log(`API route: sending notification for resource ${resourceId} by ${facultyName || user.fullName} for semester ${semester}`);
     
-    // Create notifications in database for each student
-    const notificationPromises = targetStudents.map(student => {
-      return Notification.createNotification({
-        userId: student._id,
-        message: `New resource "${resourceTitle || 'Untitled'}" uploaded by ${facultyName || user.fullName}`,
-        resourceId
-      });
-    });
-    
-    await Promise.all(notificationPromises);
-    console.log(`Created ${notificationPromises.length} notifications in database`);
-    
-    // Send real-time notification to students - Now specifically passing the semester parameter
+    // Explicitly await the notification process to complete
     try {
-      // We add await here to make sure the promise is resolved
-      await notifyResourceUpload(resourceId, facultyName || user.fullName, resourceTitle, semester);
-      console.log(`Real-time notification sent successfully for resource ${resourceId} to semester ${semester}`);
-    } catch (error) {
-      console.error('Error in notifyResourceUpload:', error);
+      await notifyResourceUpload(
+        resourceId, 
+        facultyName || user.fullName, 
+        resourceTitle, 
+        semester
+      );
+      
+      console.log(`Real-time notification sent successfully for resource ${resourceId} to semester ${semester || 'all'}`);
+      
+      return res.status(200).json({
+        success: true,
+        message: `Notification sent successfully to semester ${semester || 'all'}`,
+      });
+    } catch (notifyError) {
+      console.error('Error in notification process:', notifyError);
       return res.status(500).json({ 
-        error: 'Failed to send real-time notification',
-        details: (error as Error).message
+        error: 'Failed to send notification', 
+        details: (notifyError as Error).message 
       });
     }
-    
-    return res.status(200).json({
-      success: true,
-      message: `Notification sent successfully to semester ${semester || 'all'}`,
-    });
   } catch (error) {
     console.error('Error sending resource notification:', error);
     return res.status(500).json({ error: 'Internal server error', details: (error as Error).message });

@@ -1,3 +1,4 @@
+
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'react-hot-toast';
 
@@ -5,14 +6,16 @@ class SocketService {
   private socket: Socket | null = null;
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
   private connectionAttempts = 0;
-  private maxConnectionAttempts = 3;
+  private maxConnectionAttempts = 5; // Increased from 3 to 5
   private reconnectDelay = 2000; // 2 seconds
   private notificationsQueue: any[] = [];
+  private connected = false;
 
   // Initialize socket connection
   connect(token: string) {
     if (this.socket && this.socket.connected) {
       console.log('Socket already connected');
+      this.connected = true;
       this.processNotificationQueue();
       return;
     }
@@ -32,37 +35,58 @@ class SocketService {
     try {
       this.socket = io(socketUrl, {
         auth: { token },
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 8,       // Increased from 5 to 8
         reconnectionDelay: 1000,
-        timeout: 20000, // Increase timeout to 20 seconds
-        path: '/socket.io'
+        timeout: 30000,                // Increased from 20s to 30s
+        path: '/socket.io',
+        transports: ['websocket', 'polling']  // Explicitly define transports
       });
 
       // Set up default listeners
       this.socket.on('connect', () => {
         console.log('Socket connected successfully');
         this.connectionAttempts = 0;
+        this.connected = true;
         this.processNotificationQueue();
+        
+        // Show connection status
+        toast.success('Real-time connection established', {
+          id: 'socket-connected',
+          duration: 2000
+        });
       });
 
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error.message);
+        this.connected = false;
         this.handleConnectionError();
       });
 
       this.socket.on('disconnect', (reason) => {
         console.log('Socket disconnected:', reason);
+        this.connected = false;
+        
+        if (reason === 'io server disconnect' || reason === 'io client disconnect') {
+          // The disconnection was initiated by the server or client
+          console.log('Disconnected by server or client, not attempting to reconnect');
+        } else {
+          // Attempt to reconnect
+          console.log('Unexpected disconnect, attempting to reconnect');
+          this.socket?.connect();
+        }
       });
       
       // Listen for resource upload notifications with more detailed logging
       this.socket.on('new-resource', (data) => {
-        console.log('New resource notification received:', data);
+        console.log('New resource notification received:', JSON.stringify(data));
         
         // Add more detailed logging to debug notification issues
         if (!data) {
           console.error('Empty notification data received');
+          return;
         } else if (!data.message) {
           console.error('Notification received but missing message field:', data);
+          return;
         }
         
         this.showNotification({
@@ -90,6 +114,7 @@ class SocketService {
       });
     } catch (error) {
       console.error('Socket initialization error:', error);
+      this.connected = false;
       this.handleConnectionError();
     }
   }
@@ -116,9 +141,10 @@ class SocketService {
     
     console.log('Displaying notification:', data);
     
-    // Show toast notification
+    // Show toast notification - always show toast regardless of browser notification status
     toast.success(data.message, {
-      duration: 5000
+      duration: 5000,
+      position: 'top-right'
     });
     
     // Check if the browser supports notifications
@@ -143,19 +169,30 @@ class SocketService {
   
   // Create the actual notification
   private createNotification(data: { title: string, message: string, resourceId?: string }) {
-    const notification = new Notification(data.title, {
-      body: data.message,
-      icon: '/favicon.ico'
-    });
-    
-    notification.onclick = function() {
-      window.focus();
-      notification.close();
-      // Navigate to the resource if resourceId is provided
-      if (data.resourceId) {
-        window.location.href = `/resources/${data.resourceId}`;
-      }
-    };
+    try {
+      const notification = new Notification(data.title, {
+        body: data.message,
+        icon: '/favicon.ico',
+        tag: `resource-${data.resourceId || Date.now()}`, // Add tag to prevent duplicate notifications
+        vibrate: [200, 100, 200]
+      });
+      
+      notification.onclick = function() {
+        window.focus();
+        notification.close();
+        // Navigate to the resource if resourceId is provided
+        if (data.resourceId) {
+          window.location.href = `/resources/${data.resourceId}`;
+        }
+      };
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // Fallback to toast if browser notification fails
+      toast.success(data.message, {
+        duration: 5000,
+        position: 'top-right'
+      });
+    }
   }
 
   // Handle connection errors with retry logic
@@ -167,9 +204,12 @@ class SocketService {
       setTimeout(() => {
         const token = localStorage.getItem('token');
         if (token) this.connect(token);
-      }, this.reconnectDelay);
+      }, this.reconnectDelay * this.connectionAttempts); // Exponential backoff
     } else {
       console.log('Max connection attempts reached. Socket functionality disabled.');
+      toast.error('Unable to establish real-time connection. Please refresh the page.', {
+        duration: 5000
+      });
     }
   }
 
@@ -178,6 +218,7 @@ class SocketService {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+      this.connected = false;
       console.log('Socket disconnected by client');
     }
   }
@@ -255,7 +296,27 @@ class SocketService {
 
   // Check if socket is connected
   isConnected(): boolean {
-    return !!this.socket && this.socket.connected;
+    return this.connected && !!this.socket && this.socket.connected;
+  }
+  
+  // Force reconnection - useful if connection issues
+  reconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+    
+    const token = localStorage.getItem('token');
+    if (token) {
+      console.log("Forcing socket reconnection with token");
+      this.connectionAttempts = 0; // Reset connection attempts
+      this.connect(token);
+    } else {
+      console.warn('Cannot reconnect without auth token');
+      toast.error('Authentication required for real-time updates', {
+        duration: 3000
+      });
+    }
   }
 }
 

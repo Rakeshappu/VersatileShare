@@ -14,6 +14,7 @@ export interface ResourceAnalytics extends ResourceStats {
 }
 
 export interface FacultyResource {
+  createdAt: string;
   id: string;
   title: string;
   description: string;

@@ -82,7 +82,7 @@ async function fallbackSearch(req: Request, res: Response) {
 
   try {
     // Import the Resource model
-    const { Resource } = await import('../../lib/db/models/Resource');
+    const Resource  = await import('../../lib/db/models/Resource');
     
     // Build the query
     const query: any = {};

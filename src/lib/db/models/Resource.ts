@@ -155,7 +155,7 @@ ResourceSchema.pre('save', function(next) {
       likes: 0,
       comments: 0,
       lastViewed: new Date(),
-      dailyViews: []
+      dailyViews: [{}],
     };
   }
   
@@ -194,3 +194,11 @@ try {
 }
 
 export { Resource };
+
+  export function find(query: any) {
+    throw new Error('Function not implemented.');
+  }
+
+  export function countDocuments(query: any) {
+    throw new Error('Function not implemented.');
+  }

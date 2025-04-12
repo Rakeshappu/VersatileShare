@@ -339,13 +339,13 @@ export const PlacementResources = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6 flex items-center">
+      <h1 className="text-2xl font-bold mb-6 flex items-center dark:text-gray-200">
         <Briefcase className="mr-2 h-6 w-6 text-indigo-600" />
         Placement Preparation Resources
       </h1>
       
       <div className="mb-8">
-        <p className="text-gray-700 mb-6">
+        <p className="text-gray-700 mb-6 dark:text-gray-400">
           Access comprehensive placement preparation resources organized by categories. These materials can help you prepare for technical interviews, improve your resume, and enhance your soft skills.
         </p>
         
