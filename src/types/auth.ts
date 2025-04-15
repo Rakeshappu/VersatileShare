@@ -12,6 +12,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   error: string | null;
   clearError: () => void;
+  updateUser?: (userData: Partial<User>) => void;
 }
 
 // User type definition
@@ -27,6 +28,12 @@ export interface User {
   secretNumber?: string;
   streak?: number;
   isVerified: boolean;
+  gender?: 'Male' | 'Female' | 'Other';
+  batch?: string;
+  degree?: string;
+  usn?: string;
+  qualification?: string;
+  designation?: string;
   createdAt?: string;
 }
 
@@ -47,10 +54,19 @@ export interface SignupFormData {
   phoneNumber: string;
   semester?: number;
   secretNumber?: string;
+  usn?: string;
 }
 
 // OTP verification data
 export interface OTPVerificationData {
   email: string;
   otp: string;
+}
+
+export interface Notification {
+  _id?: string;
+  message: string;
+  resourceId?: string;
+  createdAt: Date | string;
+  read: boolean;
 }

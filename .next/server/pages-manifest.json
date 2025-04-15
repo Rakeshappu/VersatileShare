@@ -2,11 +2,13 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/auth/login": "pages/api/auth/login.js",
-  "/api/user/notifications": "pages/api/user/notifications.js",
-  "/api/db/status": "pages/api/db/status.js",
-  "/api/resources": "pages/api/resources.js",
-  "/api/subject-folders": "pages/api/subject-folders.js",
   "/404": "pages/404.js",
-  "/api/auth/me": "pages/api/auth/me.js"
+  "/api/auth/login": "pages/api/auth/login.js",
+  "/api/resources": "pages/api/resources.js",
+  "/api/user/notifications": "pages/api/user/notifications.js",
+  "/api/subject-folders": "pages/api/subject-folders.js",
+  "/api/db/status": "pages/api/db/status.js",
+  "/api/user/activity": "pages/api/user/activity.js",
+  "/api/resources/[id]/like-status": "pages/api/resources/[id]/like-status.js",
+  "/api/resources/[id]/bookmark-status": "pages/api/resources/[id]/bookmark-status.js"
 }

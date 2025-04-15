@@ -23,6 +23,7 @@ export const SignupForm = ({ role, onSubmit }: SignupFormProps) => {
     phoneNumber: '',
     semester: role === 'student' ? 1 : undefined,
     secretNumber: role === 'faculty' ? '' : undefined,
+    usn: role === 'student' ? '' : undefined,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -155,16 +156,29 @@ export const SignupForm = ({ role, onSubmit }: SignupFormProps) => {
             </motion.div>
 
             {role === 'student' && (
-              <motion.div variants={itemVariants}>
-                <FormField
-                  label="Semester"
-                  name="semester"
-                  type="select"
-                  value={formData.semester?.toString() || '1'}
-                  onChange={handleChange}
-                  options={semesters}
-                />
-              </motion.div>
+              <>
+                <motion.div variants={itemVariants}>
+                  <FormField
+                    label="University Serial Number (USN)"
+                    name="usn"
+                    value={formData.usn || ''}
+                    onChange={handleChange}
+                    placeholder="Enter your USN"
+                    required={true}
+                  />
+                </motion.div>
+
+                <motion.div variants={itemVariants}>
+                  <FormField
+                    label="Semester"
+                    name="semester"
+                    type="select"
+                    value={formData.semester?.toString() || '1'}
+                    onChange={handleChange}
+                    options={semesters}
+                  />
+                </motion.div>
+              </>
             )}
 
             {role === 'faculty' && (

@@ -5,21 +5,29 @@ import { LoginFormData } from '../../types/auth';
 import { FormField } from './FormField';
 import { Share2, LogIn } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginFormProps {
   onSubmit: (data: LoginFormData) => void;
   error?: string | null;
 }
 
-export const LoginForm = ({ onSubmit, error }: LoginFormProps) => {
+export const LoginForm = ({ onSubmit, error: propError }: LoginFormProps) => {
+  const { error: contextError, clearError } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
   });
 
+  // Use either prop error or context error
+  const displayError = propError || contextError;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (clearError) {
+      clearError();
+    }
     onSubmit(formData);
   };
 
@@ -54,13 +62,13 @@ export const LoginForm = ({ onSubmit, error }: LoginFormProps) => {
           </p>
         </div>
 
-        {error && (
+        {displayError && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             className="rounded-md bg-red-50 p-4 border-l-4 border-red-400"
           >
-            <div className="text-sm text-red-700">{error}</div>
+            <div className="text-sm text-red-700">{displayError}</div>
           </motion.div>
         )}
 

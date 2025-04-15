@@ -25,7 +25,8 @@ class SocketService {
       ? window.location.hostname
       : window.location.origin;
     
-    const port = process.env.NODE_ENV === 'development' ? '8080' : '';
+    // const port = process.env.NODE_ENV === 'development' ? '8080' : ''; //is it right??
+    const port = process.env.NODE_ENV === 'development' ? '5173' : '';
     const socketUrl = process.env.NODE_ENV === 'development'
       ? `http://${baseUrl}:${port}`
       : baseUrl;

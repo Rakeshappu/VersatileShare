@@ -5,6 +5,7 @@ import { FacultyResource } from '../../types/faculty';
 import { formatDate } from '../../utils/dateUtils';
 import { toast } from 'react-hot-toast';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
+import { useNavigate } from 'react-router-dom';
 
 interface ResourceListProps {
   resources: FacultyResource[];
@@ -30,6 +31,7 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [resourceToDelete, setResourceToDelete] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const getIcon = (type: FacultyResource['type']) => {
     switch (type) {
@@ -112,6 +114,11 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
   const handleCancelDelete = () => {
     setShowDeleteConfirmation(false);
     setResourceToDelete(null);
+  };
+
+  const handleViewAnalytics = (resourceId: string) => {
+    // Navigate directly to the analytics page with the selected resource
+    navigate(`/faculty/analytics?resourceId=${resourceId}`);
   };
 
   // Define filteredResources here
@@ -222,9 +229,9 @@ export const ResourceList = ({ resources, onViewAnalytics, showDeleteButton = fa
                     </button>
                   )}
                   <button
-                    onClick={() => onViewAnalytics(resource.id || resource._id || '')}
+                    onClick={() => handleViewAnalytics(resource.id || resource._id || '')}
                     className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700 cursor-pointer"
-                  type="button"
+                    type="button"
                   >
                     <BarChart2 className="h-5 w-5" />
                     <span className="text-sm">Analytics</span>

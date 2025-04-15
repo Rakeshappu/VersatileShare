@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  User, Search, Filter, Plus, Upload, Download, Trash2, CheckCircle, XCircle,
-  Edit, MoreVertical, Shield, Users as UsersIcon, Laptop, Phone, Mail, UserPlus, Eye, EyeOff
+  User, Search, Trash2, CheckCircle, XCircle,
+  Edit, Shield, Users as UsersIcon, Laptop, Mail, UserPlus, Eye
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
@@ -20,9 +20,10 @@ interface AppUser {
   department?: string;
   semester?: number;
   isEmailVerified: boolean;
-  lastActive?: string;
+  isAdminVerified: boolean;
+  lastLogin?: string;
   createdAt?: string;
-  avatarUrl?: string;
+  avatar?: string;
 }
 
 const UsersManagement = () => {
@@ -34,9 +35,9 @@ const UsersManagement = () => {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [semesterFilter, setSemesterFilter] = useState<number | 'all'>('all');
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [verifyingUser, setVerifyingUser] = useState<string | null>(null);
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
 
@@ -68,6 +69,7 @@ const UsersManagement = () => {
       try {
         setIsLoading(true);
         const response = await api.get('/api/admin/users');
+        
         if (response.data && response.data.users) {
           setUsers(response.data.users);
           setFilteredUsers(response.data.users);
@@ -84,17 +86,6 @@ const UsersManagement = () => {
       } catch (error) {
         console.error('Error fetching users:', error);
         toast.error('Failed to load users data');
-        
-        // Generate mock data if API fails
-        const mockUsers = generateMockUsers(25);
-        setUsers(mockUsers);
-        setFilteredUsers(mockUsers);
-        
-        const mockDepartments = Array.from(new Set(
-          mockUsers.map(user => user.department).filter(Boolean)
-        )) as string[];
-        
-        setAvailableDepartments(mockDepartments);
       } finally {
         setIsLoading(false);
       }
@@ -102,33 +93,6 @@ const UsersManagement = () => {
     
     fetchUsers();
   }, []);
-
-  // Generate mock users data for development/preview
-  const generateMockUsers = (count: number): AppUser[] => {
-    const departments = ['Computer Science', 'Electronics', 'Mechanical', 'Civil Engineering', 'Electrical'];
-    const roles: UserRole[] = ['student', 'faculty', 'admin'];
-    const mockUsers: AppUser[] = [];
-    
-    for (let i = 0; i < count; i++) {
-      const role = roles[Math.floor(Math.random() * (roles.length - (i < 5 ? 0 : 1)))];
-      const department = departments[Math.floor(Math.random() * departments.length)];
-      const semester = role === 'student' ? Math.floor(Math.random() * 8) + 1 : undefined;
-      
-      mockUsers.push({
-        _id: `user_${i+1}`,
-        fullName: `User ${i+1}`,
-        email: `user${i+1}@example.com`,
-        role,
-        department,
-        semester,
-        isEmailVerified: Math.random() > 0.2,
-        lastActive: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)).toISOString(),
-        createdAt: new Date(Date.now() - Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000)).toISOString(),
-      });
-    }
-    
-    return mockUsers;
-  };
 
   // Apply filters
   useEffect(() => {
@@ -171,13 +135,43 @@ const UsersManagement = () => {
     navigate(`/admin/users/edit/${user._id}`);
   };
 
+  const handleVerifyUser = async (userId: string, verify: boolean) => {
+    try {
+      setVerifyingUser(userId);
+      
+      const response = await api.post('/api/admin/users/verify', {
+        userId,
+        verify
+      });
+      
+      if (response.data && response.data.success) {
+        // Update user in state
+        setUsers(users.map(user => {
+          if (user._id === userId) {
+            return { ...user, isAdminVerified: verify };
+          }
+          return user;
+        }));
+        
+        toast.success(verify ? 'User verified successfully' : 'User verification revoked');
+      }
+    } catch (error) {
+      console.error('Error verifying user:', error);
+      toast.error(verify ? 'Failed to verify user' : 'Failed to revoke verification');
+    } finally {
+      setVerifyingUser(null);
+    }
+  };
+
   const handleDeleteUser = async (userId: string) => {
     if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       return;
     }
     
     try {
-      await api.delete(`/api/admin/users/${userId}`);
+      await api.delete('/api/admin/users', {
+        data: { userId }
+      });
       
       // Update local state
       setUsers(users.filter(user => user._id !== userId));
@@ -189,7 +183,7 @@ const UsersManagement = () => {
   };
 
   const handleCreateUser = () => {
-    setShowCreateModal(true);
+    navigate('/admin/users/create');
   };
 
   // Render role badge
@@ -321,7 +315,8 @@ const UsersManagement = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Department</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Admin Approval</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Last Active</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -332,10 +327,10 @@ const UsersManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
-                            {user.avatarUrl ? (
+                            {user.avatar ? (
                               <img 
-                                className="h-10 w-10 rounded-full" 
-                                src={user.avatarUrl} 
+                                className="h-10 w-10 rounded-full object-cover" 
+                                src={user.avatar} 
                                 alt={user.fullName} 
                               />
                             ) : (
@@ -377,20 +372,37 @@ const UsersManagement = () => {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {user.lastActive ? formatDate(user.lastActive) : 'Never'}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {user.isAdminVerified ? (
+                            <>
+                              <CheckCircle className="h-5 w-5 text-green-500" />
+                              <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">Approved</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-5 w-5 text-red-500" />
+                              <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">Not approved</span>
+                            </>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {user.lastLogin ? formatDate(user.lastLogin) : 'Never'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           <button 
                             onClick={() => handleViewUser(user)} 
                             className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400"
+                            title="View user details"
                           >
                             <Eye size={18} />
                           </button>
                           <button 
                             onClick={() => handleEditUser(user)} 
                             className="text-indigo-600 hover:text-indigo-900 dark:hover:text-indigo-400"
+                            title="Edit user"
                           >
                             <Edit size={18} />
                           </button>
@@ -398,8 +410,27 @@ const UsersManagement = () => {
                             <button 
                               onClick={() => handleDeleteUser(user._id)} 
                               className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                              title="Delete user"
                             >
                               <Trash2 size={18} />
+                            </button>
+                          )}
+                          {currentUser?._id !== user._id && (
+                            <button
+                              onClick={() => handleVerifyUser(user._id, !user.isAdminVerified)}
+                              disabled={verifyingUser === user._id}
+                              className={`${
+                                user.isAdminVerified
+                                  ? "text-orange-500 hover:text-orange-700"
+                                  : "text-green-600 hover:text-green-800"
+                              } ${verifyingUser === user._id ? "opacity-50 cursor-not-allowed" : ""}`}
+                              title={user.isAdminVerified ? "Revoke verification" : "Verify user"}
+                            >
+                              {user.isAdminVerified ? (
+                                <XCircle size={18} />
+                              ) : (
+                                <CheckCircle size={18} />
+                              )}
                             </button>
                           )}
                         </div>
@@ -478,11 +509,11 @@ const UsersManagement = () => {
             </div>
             <div className="p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center mb-6">
-                {selectedUser.avatarUrl ? (
+                {selectedUser.avatar ? (
                   <img 
-                    src={selectedUser.avatarUrl} 
+                    src={selectedUser.avatar} 
                     alt={selectedUser.fullName}
-                    className="w-20 h-20 rounded-full mr-4"
+                    className="w-20 h-20 rounded-full mr-4 object-cover"
                   />
                 ) : (
                   <div className="w-20 h-20 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center mr-4">
@@ -523,33 +554,65 @@ const UsersManagement = () => {
                       </p>
                     )}
                     <p className="text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Email Verified:</span>{' '}
+                      <span className={`${selectedUser.isEmailVerified ? 'text-green-500' : 'text-red-500'}`}>
+                        {selectedUser.isEmailVerified ? 'Yes' : 'No'}
+                      </span>
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Admin Approved:</span>{' '}
+                      <span className={`${selectedUser.isAdminVerified ? 'text-green-500' : 'text-red-500'}`}>
+                        {selectedUser.isAdminVerified ? 'Yes' : 'No'}
+                      </span>
+                    </p>
+                    <p className="text-sm">
                       <span className="text-gray-500 dark:text-gray-400">Created:</span>{' '}
                       <span className="text-gray-900 dark:text-white">{formatDate(selectedUser.createdAt)}</span>
                     </p>
                     <p className="text-sm">
                       <span className="text-gray-500 dark:text-gray-400">Last active:</span>{' '}
-                      <span className="text-gray-900 dark:text-white">{selectedUser.lastActive ? formatDate(selectedUser.lastActive) : 'Never'}</span>
+                      <span className="text-gray-900 dark:text-white">{selectedUser.lastLogin ? formatDate(selectedUser.lastLogin) : 'Never'}</span>
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-between">
                 <button
                   onClick={() => {
-                    setShowDetailsModal(false);
-                    handleEditUser(selectedUser);
+                    handleVerifyUser(selectedUser._id, !selectedUser.isAdminVerified);
+                    setSelectedUser({
+                      ...selectedUser,
+                      isAdminVerified: !selectedUser.isAdminVerified
+                    });
                   }}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  disabled={verifyingUser === selectedUser._id}
+                  className={`px-4 py-2 rounded-md ${
+                    selectedUser.isAdminVerified
+                      ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                      : "bg-green-100 text-green-700 hover:bg-green-200"
+                  } ${verifyingUser === selectedUser._id ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
-                  Edit User
+                  {selectedUser.isAdminVerified ? "Revoke Verification" : "Verify User"}
                 </button>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                >
-                  Close
-                </button>
+
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      handleEditUser(selectedUser);
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Edit User
+                  </button>
+                  <button
+                    onClick={() => setShowDetailsModal(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>

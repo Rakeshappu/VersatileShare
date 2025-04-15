@@ -1,71 +1,120 @@
 
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { User } from '../../lib/db/models/User';
-import { generateToken, generateVerificationToken } from '../utils/auth';
+import { EligibleUSN } from '../../lib/db/models/EligibleUSN';
+import { generateToken } from '../utils/auth';
+import { sendVerificationEmail, sendWelcomeEmail } from '../../lib/email/sendEmail';
+import { generateOTP } from '../../lib/auth/otp';
 
+// Signup controller with proper validation and response
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { email, password, fullName, role, department, phoneNumber, secretNumber } = req.body;
+    const { email, password, fullName, role, usn, department, semester, phoneNumber } = req.body;
 
-    // Check if user exists
+    if (!email || !password || !fullName || !role) {
+      return res.status(400).json({ error: 'All required fields must be provided' });
+    }
+
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
+      return res.status(400).json({ error: 'Email is already registered' });
     }
 
-    // Validate faculty secret number
-    if (role === 'faculty' && (!secretNumber || secretNumber !== process.env.FACULTY_SECRET)) {
-      return res.status(400).json({ error: 'Invalid faculty secret number' });
+    // For student role, validate USN exists and is not already used
+    if (role === 'student' && usn) {
+      const eligibleUSN = await EligibleUSN.findOne({ usn: usn.toUpperCase() });
+      
+      if (!eligibleUSN) {
+        return res.status(400).json({ error: 'USN is not in the eligible list' });
+      }
+      
+      if (eligibleUSN.isUsed) {
+        return res.status(400).json({ error: 'USN is already in use' });
+      }
+      
+      // Mark USN as used
+      eligibleUSN.isUsed = true;
+      await eligibleUSN.save();
     }
 
-    // Generate verification token
-    const verificationToken = generateVerificationToken();
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate OTP for email verification
+    const verificationOTP = generateOTP();
+    const otpExpiry = new Date();
+    otpExpiry.setHours(otpExpiry.getHours() + 24); // OTP valid for 24 hours
 
     // Create user
-    const user = new User({
+    const newUser = new User({
       email,
-      password,
+      password: hashedPassword,
       fullName,
       role,
+      usn: role === 'student' ? usn.toUpperCase() : undefined,
       department,
+      semester: role === 'student' ? semester : undefined,
       phoneNumber,
-      verificationToken,
-      verificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      verificationOTP,
+      verificationOTPExpiry: otpExpiry,
     });
 
-    await user.save();
+    await newUser.save();
 
     // Send verification email
-    // await sendVerificationEmail(email, verificationToken);
+    await sendVerificationEmail(email, fullName, verificationOTP);
 
-    res.status(201).json({ message: 'User created successfully' });
+    // Generate a token with the role included
+    const token = generateToken(newUser._id.toString(), role);
+
+    res.status(201).json({
+      message: 'User registered successfully. Please verify your email.',
+      token,
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        fullName: newUser.fullName,
+        role: newUser.role,
+        isVerified: false,
+      },
+    });
   } catch (error) {
     console.error('Signup error:', error);
-    res.status(500).json({ error: 'Failed to create account' });
+    res.status(500).json({ error: 'Error creating user account' });
   }
 };
 
+// Login controller with proper validation
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Find user
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    if (!user.isEmailVerified) {
-      return res.status(401).json({ error: 'Please verify your email first' });
-    }
-
-    const isValid = await user.comparePassword(password);
-    if (!isValid) {
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = generateToken(user._id);
+    // Generate token with role explicitly included
+    const token = generateToken(user._id.toString(), user.role);
+
+    console.log(`User logged in: ${user._id} with role: ${user.role}`);
 
     res.json({
+      message: 'Login successful',
       token,
       user: {
         id: user._id,
@@ -73,59 +122,113 @@ export const login = async (req: Request, res: Response) => {
         fullName: user.fullName,
         role: user.role,
         department: user.department,
+        phoneNumber: user.phoneNumber,
+        avatar: user.avatar || undefined,
+        semester: user.semester || undefined,
+        isVerified: !!user.isEmailVerified,
       },
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ error: 'Error during login' });
   }
 };
 
+// Email verification controller
 export const verifyEmail = async (req: Request, res: Response) => {
   try {
-    const { token } = req.body;
+    const { email, otp } = req.body;
 
-    const user = await User.findOne({
-      verificationToken: token,
-      verificationTokenExpiry: { $gt: new Date() },
-    });
-
-    if (!user) {
-      return res.status(400).json({ error: 'Invalid or expired verification token' });
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP are required' });
     }
 
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if already verified
+    if (user.isEmailVerified) {
+      return res.status(400).json({ error: 'Email is already verified' });
+    }
+
+    // Check if OTP is correct and not expired
+    if (
+      user.verificationOTP !== otp ||
+      !user.verificationOTPExpiry ||
+      new Date() > user.verificationOTPExpiry
+    ) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    // Mark email as verified
     user.isEmailVerified = true;
-    user.verificationToken = undefined;
-    user.verificationTokenExpiry = undefined;
+    user.verificationOTP = undefined;
+    user.verificationOTPExpiry = undefined;
+    
     await user.save();
 
-    res.json({ message: 'Email verified successfully' });
+    // Send welcome email
+    await sendWelcomeEmail(user.email, user.fullName);
+
+    // Generate a new token with the role included
+    const token = generateToken(user._id.toString(), user.role);
+
+    res.json({
+      message: 'Email verified successfully',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        isVerified: true,
+      },
+    });
   } catch (error) {
     console.error('Email verification error:', error);
-    res.status(500).json({ error: 'Email verification failed' });
+    res.status(500).json({ error: 'Error verifying email' });
   }
 };
 
+// Resend verification email
 export const resendVerification = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    
-    const user = await User.findOne({ email, isEmailVerified: false });
-    if (!user) {
-      return res.status(400).json({ error: 'Invalid email or already verified' });
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
     }
 
-    const verificationToken = generateVerificationToken();
-    
-    user.verificationToken = verificationToken;
-    user.verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if already verified
+    if (user.isEmailVerified) {
+      return res.status(400).json({ error: 'Email is already verified' });
+    }
+
+    // Generate new OTP
+    const verificationOTP = generateOTP();
+    const otpExpiry = new Date();
+    otpExpiry.setHours(otpExpiry.getHours() + 24); // OTP valid for 24 hours
+
+    // Update user with new OTP
+    user.verificationOTP = verificationOTP;
+    user.verificationOTPExpiry = otpExpiry;
     await user.save();
-    
-    // await sendVerificationEmail(email, verificationToken);
+
+    // Send verification email
+    await sendVerificationEmail(email, user.fullName, verificationOTP);
 
     res.json({ message: 'Verification email resent successfully' });
   } catch (error) {
     console.error('Resend verification error:', error);
-    res.status(500).json({ error: 'Failed to resend verification email' });
+    res.status(500).json({ error: 'Error resending verification email' });
   }
 };

@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Header } from './components/layout/Header';
@@ -19,15 +18,14 @@ import PlacementResources from './pages/placement/PlacementResources';
 import { SubjectDetailPage } from './pages/study/SubjectDetailPage';
 import UsersManagement from './pages/admin/UsersManagement';
 import AllResources from './pages/admin/AllResources';
+import EligibleUSNs from './pages/admin/EligibleUSNs';
 
-// Import faculty pages
-import { AnalyticsPage } from './pages/faculty/AnalyticsPage';
+import AnalyticsPage from './pages/faculty/AnalyticsPage';
 import { StudentsPage } from './pages/faculty/StudentsPage';
 import { StarredPage as FacultyStarredPage } from './pages/faculty/StarredPage';
 import { TrashPage as FacultyTrashPage } from './pages/faculty/TrashPage';
 import { SettingsPage as FacultySettingsPage } from './pages/faculty/SettingsPage';
 
-// Faculty upload components
 import { UploadWorkflow } from './components/faculty/UploadWorkflow';
 
 function App() {
@@ -38,7 +36,6 @@ function App() {
       <AuthProvider>
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
           <Routes>
-            {/* Redirect root to auth page or dashboard for testing */}
             <Route 
               path="/" 
               element={
@@ -48,11 +45,9 @@ function App() {
               } 
             />
             
-            {/* Auth routes */}
             <Route path="/auth/*" element={<AuthPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             
-            {/* Student routes */}
             <Route
               path="/dashboard"
               element={
@@ -67,6 +62,7 @@ function App() {
                 </PrivateRoute>
               }
             />
+           
             <Route
               path="/study-materials"
               element={
@@ -166,7 +162,6 @@ function App() {
               }
             />
             
-            {/* Faculty routes */}
             <Route
               path="/faculty/dashboard"
               element={
@@ -194,15 +189,12 @@ function App() {
                           onSelectOption={(option, data) => {
                             console.log("Selected option:", option, data);
                             if (option === 'direct-upload' && data) {
-                              // Handle the direct upload with the provided data
                               if (data.resourceType === 'placement') {
                                 console.log("Handling placement resource upload:", data);
-                                // Additional logic for placement resource could go here
                               }
                             }
                           }} 
                           onCancel={() => {
-                            // Navigate back to faculty dashboard
                             window.location.href = '/faculty/dashboard';
                           }}
                           showAvailableSubjects={true}
@@ -284,7 +276,6 @@ function App() {
               }
             />
             
-            {/* Admin routes */}
             <Route
               path="/admin/dashboard"
               element={
@@ -384,7 +375,21 @@ function App() {
               }
             />
             
-            {/* Profile route */}
+            <Route
+              path="/admin/eligible-usns"
+              element={
+                <PrivateRoute role="admin">
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1">
+                      <Header />
+                      <EligibleUSNs />
+                    </div>
+                  </div>
+                </PrivateRoute>
+              }
+            />
+            
             <Route
               path="/profile"
               element={

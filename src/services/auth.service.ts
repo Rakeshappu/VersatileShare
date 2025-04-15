@@ -2,6 +2,8 @@
 import api from './api';
 import { API_ROUTES } from '../lib/api/routes';
 import { SignupFormData, LoginFormData, User } from '../types/auth';
+import { decodeToken } from '../utils/authUtils';
+import { toast } from 'react-hot-toast';
 
 const handleApiError = (error: any, defaultMessage: string) => {
   console.error('API Error Details:', {
@@ -26,6 +28,23 @@ export const authService = {
       }
       
       const response = await api.get(API_ROUTES.AUTH.ME);
+      
+      // Check token for role information
+      const tokenPayload = decodeToken(token);
+      const userData = response.data.user;
+      
+      if (userData && userData.role && (!tokenPayload.role || tokenPayload.role !== userData.role)) {
+        console.warn('Token role information mismatch or missing:', {
+          tokenRole: tokenPayload.role || 'missing',
+          userRole: userData.role
+        });
+        
+        // For admin users, this is more critical
+        if (userData.role === 'admin') {
+          toast.warning('Your admin permissions may not be fully activated in this session. Consider logging out and back in.');
+        }
+      }
+      
       return response.data;
     } catch (error: any) {
       localStorage.removeItem('token'); // Clear invalid token
@@ -41,8 +60,24 @@ export const authService = {
       console.log('Login response:', response.data);
       
       if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        const token = response.data.token;
+        const user = response.data.user;
+        
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // Verify token contains proper role information
+        const tokenPayload = decodeToken(token);
+        if (!tokenPayload.role || tokenPayload.role !== user.role) {
+          console.warn('Token role missing or mismatch:', {
+            tokenRole: tokenPayload.role || 'missing',
+            userRole: user.role
+          });
+          
+          if (user.role === 'admin') {
+            toast.warning('Your admin session may require refreshing if you encounter permission issues.');
+          }
+        }
       }
       return response.data;
     } catch (error: any) {
@@ -53,6 +88,11 @@ export const authService = {
   async signup(data: SignupFormData){
     try {
       console.log('Sending signup request:', data);
+      // Make sure USN is included in the request if the role is student
+      if (data.role === 'student' && !data.usn) {
+        throw new Error('USN is required for student registration');
+      }
+      // Use correct API endpoint from API_ROUTES
       const response = await api.post(API_ROUTES.AUTH.SIGNUP, data);
       console.log('Signup response:', response.data);
       return response.data;
@@ -79,6 +119,13 @@ export const authService = {
       if (storedUser) {
         // Use stored user data for quick rendering
         const user = JSON.parse(storedUser);
+        
+        // Verify token has required role information
+        const tokenPayload = decodeToken(token);
+        if (user.role === 'admin' && (!tokenPayload.role || tokenPayload.role !== 'admin')) {
+          console.warn('Token missing admin role information for admin user');
+          toast.warning('Your admin permissions may not be fully activated. Consider logging out and back in.');
+        }
         
         // Verify with server in background
         api.get(API_ROUTES.AUTH.ME)
@@ -175,6 +222,38 @@ export const authService = {
       return response.data;
     } catch (error: any) {
       handleApiError(error, 'Google authentication failed');
+    }
+  },
+  
+  async verifyAdminStatus() {
+    try {
+      const response = await api.get(API_ROUTES.AUTH.ADMIN_CHECK);
+      
+      // Check if admin verification suggests relogin
+      if (response.data.needsRelogin) {
+        toast.warning('Your admin session needs to be refreshed. Please log out and log back in.');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Admin verification failed:', error);
+      
+      // If we get a 403 but user thinks they're admin, suggest relogin
+      if (error.status === 403) {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const userData = JSON.parse(userStr);
+            if (userData.role === 'admin') {
+              toast.error('Your admin session needs to be refreshed. Please log out and log back in.');
+            }
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+          }
+        }
+      }
+      
+      return null;
     }
   }
 };

@@ -1,249 +1,223 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, SignupFormData } from '../types/auth';
-import { authService } from '../services/auth.service';
-import { useNavigate } from 'react-router-dom';
-import socketService from '../services/socket.service';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import api from '../services/api';
+import { API_ROUTES } from '../lib/api/routes';
+import { User, UserRole } from '../types/auth';
+import { toast } from 'react-hot-toast';
+import { decodeToken } from '../utils/authUtils';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  error: string | null;
-  setError: (error: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
-  signup: (userData: SignupFormData) => Promise<void>;
-  logout: () => void;
-  verifyEmail: (token: string) => Promise<void>;
+  logout: () => Promise<void>;
+  signup: (userData: SignupData) => Promise<void>;
+  updateUser: (updatedData: Partial<User>) => void;
+  error: string | null;
   clearError: () => void;
-  verifyOTP: (email: string, otp: string) => Promise<void>;
-  resendOTP: (email: string) => Promise<void>;
-  resendVerification: (email: string) => Promise<void>;
   isAuthenticated: boolean;
-  updateUser: (userData: Partial<User>) => void;
+  verifyOTP?: (email: string, otp: string) => Promise<any>;
+  resendOTP?: (email: string) => Promise<any>;
+}
+
+interface SignupData {
+  fullName: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  usn?: string;
+  department?: string;
+  semester?: number;
+  phoneNumber?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const navigate = useNavigate();
-
-  // Flag to control socket usage
-  const useSocketFeatures = false; // Set to false to disable sockets completely
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          setLoading(false);
-          return;
-        }
-        
-        const currentUser = await authService.getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-          setIsAuthenticated(true);
-          
-          // Connect to socket service when authenticated - only if feature is enabled
-          if (useSocketFeatures) {
-            try {
-              socketService.connect(token);
-            } catch (socketError) {
-              console.error('Socket connection failed:', socketError);
-              // Non-critical error, don't affect the auth flow
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Auth initialization failed:', error);
-        // Clear potentially invalid auth data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Check if user data exists in localStorage
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
 
-    initAuth();
-    
-    // Cleanup socket connection on unmount
-    return () => {
-      if (useSocketFeatures) {
-        socketService.disconnect();
+    if (storedToken && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        
+        // Decode token to verify role information
+        const decodedToken = decodeToken(storedToken);
+        const tokenRole = decodedToken?.role;
+        
+        // If token doesn't have role but local storage does, show warning
+        if (userData.role && !tokenRole) {
+          console.warn('Token missing role information. Consider re-login.');
+          toast.warn('Your session may need refreshing. Consider logging out and back in.', {
+            duration: 6000
+          });
+        }
+        
+        setUser(userData);
+        
+        // Verify token with server
+        api.get(API_ROUTES.AUTH.ME)
+          .then(response => {
+            const serverUserData = response.data.user;
+            // Update with latest user data from server
+            if (serverUserData) {
+              const updatedUser = {
+                ...userData,
+                role: serverUserData.role || userData.role,
+                isVerified: serverUserData.isVerified || userData.isVerified,
+              };
+              
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              setUser(updatedUser);
+            }
+          })
+          .catch(error => {
+            console.error('Error verifying token:', error);
+            // Token might be invalid, clear storage
+            if (error.status === 401) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setUser(null);
+            }
+          });
+      } catch (error) {
+        console.error('Error parsing stored user data:', error);
+        localStorage.removeItem('user');
       }
-    };
+    }
+    
+    setLoading(false);
   }, []);
 
-  // Function to update user data (used when profile is updated)
-  const updateUser = (userData: Partial<User>) => {
-    if (!user) return;
-    
-    const updatedUser = { ...user, ...userData };
-    setUser(updatedUser);
-    
-    // Update local storage
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+  const clearError = () => {
+    setError(null);
   };
 
   const login = async (email: string, password: string) => {
     try {
-      setLoading(true);
-      clearError();
-      const response = await authService.login({ email, password });
-      setUser(response.user);
-      setIsAuthenticated(true);
+      setError(null);
+      const response = await api.post(API_ROUTES.AUTH.LOGIN, { email, password });
       
-      // Connect to socket - only if feature is enabled
-      if (useSocketFeatures && response.token) {
-        try {
-          socketService.connect(response.token);
-        } catch (socketError) {
-          console.error('Socket connection failed:', socketError);
-          // Non-critical error, continue auth flow
-        }
+      const { token, user } = response.data;
+      
+      // Store token and user data in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      // Verify token has role information
+      const decodedToken = decodeToken(token);
+      if (!decodedToken?.role && user?.role) {
+        console.warn('Token does not contain role information but user data does.');
+        // We'll continue but log this warning
       }
       
-      // Navigate based on user role
-      if (response.user.role === 'faculty') {
-        navigate('/faculty/dashboard');
-      } else if (response.user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      setUser(user);
+    } catch (err: any) {
+      const errorMessage = err.message || 'Login failed. Please try again.';
+      setError(errorMessage);
+      throw err;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Remove token and user data from localStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       
-    } catch (error: any) {
-      setError(error.message || 'Login failed');
-      throw error;
-    } finally {
-      setLoading(false);
+      // Clear user state
+      setUser(null);
+      setError(null);
+      
+      // Optionally notify the server (if you have a logout endpoint)
+      // await api.post(API_ROUTES.AUTH.LOGOUT);
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Logout error:', error);
+      return Promise.reject(error);
     }
   };
 
-  const signup = async (userData: SignupFormData) => {
+  const signup = async (userData: SignupData) => {
     try {
-      setLoading(true);
-      clearError();
-      await authService.signup(userData);
-      navigate('/auth/verify', { state: { email: userData.email } });
-    } catch (error: any) {
-      setError(error.message || 'Signup failed');
-      throw error;
-    } finally {
-      setLoading(false);
+      setError(null);
+      const response = await api.post(API_ROUTES.AUTH.SIGNUP, userData);
+      
+      const { token, user } = response.data;
+      
+      // Store token and user data in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      setUser(user);
+    } catch (err: any) {
+      const errorMessage = err.message || 'Signup failed. Please try again.';
+      setError(errorMessage);
+      throw err;
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setIsAuthenticated(false);
-    
-    // Disconnect from socket - only if feature is enabled
-    if (useSocketFeatures) {
-      socketService.disconnect();
-    }
-    
-    navigate('/auth/login');
-  };
-
-  const verifyEmail = async (token: string) => {
-    try {
-      setLoading(true);
-      clearError();
-      await authService.verifyEmail(token);
-      navigate('/auth/login', { 
-        state: { message: 'Email verified successfully! You can now log in.' } 
-      });
-    } catch (error: any) {
-      setError(error.message || 'Email verification failed');
-      throw error;
-    } finally {
-      setLoading(false);
+  const updateUser = (updatedData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...updatedData };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
     }
   };
-
+  
+  // Add OTP verification methods to support the OtpVerification component
   const verifyOTP = async (email: string, otp: string) => {
     try {
-      setLoading(true);
-      clearError();
-      await authService.verifyOTP(email, otp);
-      navigate('/auth/login', { 
-        state: { message: 'OTP verified successfully! You can now log in.' } 
-      });
-    } catch (error: any) {
-      setError(error.message || 'OTP verification failed');
-      throw error;
-    } finally {
-      setLoading(false);
+      const response = await api.post(API_ROUTES.AUTH.VERIFY_OTP, { email, otp });
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.message || 'OTP verification failed. Please try again.';
+      setError(errorMessage);
+      throw err;
     }
   };
 
   const resendOTP = async (email: string) => {
     try {
-      setLoading(true);
-      clearError();
-      await authService.resendOTP(email);
-      setError('OTP has been resent to your email');
-    } catch (error: any) {
-      setError(error.message || 'Failed to resend OTP');
-      throw error;
-    } finally {
-      setLoading(false);
+      const response = await api.post(API_ROUTES.AUTH.SEND_OTP, { email });
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to resend OTP. Please try again.';
+      setError(errorMessage);
+      throw err;
     }
-  };
-  
-  const resendVerification = async (email: string) => {
-    try {
-      setLoading(true);
-      clearError();
-      await authService.resendVerification(email);
-      setError('Verification email has been resent');
-    } catch (error: any) {
-      setError(error.message || 'Failed to resend verification email');
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const clearError = () => setError(null);
-
-  const value = {
-    user,
-    loading,
-    error,
-    setError,
-    login,
-    signup,
-    logout,
-    verifyEmail,
-    clearError,
-    verifyOTP,
-    resendOTP,
-    resendVerification,
-    isAuthenticated,
-    updateUser,
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      login, 
+      logout, 
+      signup, 
+      updateUser, 
+      error, 
+      clearError,
+      isAuthenticated: !!user,
+      verifyOTP,
+      resendOTP
+    }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};

@@ -1,342 +1,263 @@
+
 import { useState, useEffect } from 'react';
-import { BarChart2, Users, ThumbsUp, MessageSquare, Calendar } from 'lucide-react';
-import { AnalyticsCard } from '../../components/analytics/AnalyticsCard';
+import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import { toast } from 'react-hot-toast';
-import { getResourceAnalytics } from '../../services/resource.service';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { ResourceAnalyticsView } from '../../components/faculty/ResourceAnalytics';
+import { useSearchParams } from 'react-router-dom';
 
-interface AnalyticsData {
+export interface ResourceAnalytics {
   views: number;
-  uniqueViewers: number;
   likes: number;
   comments: number;
-  likedBy: Array<{
-    _id: string;
-    fullName: string;
-    avatar?: string;
-    department?: string;
-  }>;
-  commentDetails: Array<{
-    _id: string;
-    content: string;
-    createdAt: string;
-    author: {
-      _id: string;
-      fullName: string;
-      avatar?: string;
-      department?: string;
-    };
-  }>;
-  departmentDistribution: Array<{
-    name: string;
-    count: number;
-  }>;
-  dailyViews: Array<{
-    date: string;
-    count: number;
-  }>;
+  downloads: number;
+  lastViewed: string;
+  dailyViews: Array<{ date: string; count: number }>;
+  studentFeedback?: Array<{ rating: number; count: number }>;
 }
 
-export const AnalyticsPage = () => {
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedResource, setSelectedResource] = useState<string | null>(null);
-  const [resources, setResources] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
+interface Resource {
+  id?: string;
+  _id?: string;
+  title: string;
+  description: string;
+  type: 'document' | 'video' | 'link' | 'note';
+  url?: string;
+  fileSize?: number;
+  semester: number;
+  subject: string;
+  uploadDate?: string;
+  analytics?: ResourceAnalytics;
+}
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
+export default function AnalyticsPage() {
+  const { user } = useAuth();
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [selectedResourceId, setSelectedResourceId] = useState<string>('');
+  const [resourceAnalytics, setResourceAnalytics] = useState<ResourceAnalytics | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedResourceTitle, setSelectedResourceTitle] = useState<string>('');
+  
+  // Add this to get resourceId from URL params
+  const resourceIdFromUrl = searchParams.get('resourceId');
 
   useEffect(() => {
     const fetchResources = async () => {
       try {
-        setIsLoading(true);
-        setError(null);
-        
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setError("Authentication token not found. Please login again.");
-          setIsLoading(false);
-          return;
-        }
-        
-        console.log('Token available:', token.substring(0, 10) + '...');
-        
+        setLoading(true);
         const response = await api.get('/api/resources/faculty');
-        console.log('Faculty resources response:', response.data);
         
-        if (response.data.resources && response.data.resources.length > 0) {
-          setResources(response.data.resources || []);
+        if (response.data && response.data.resources) {
+          setResources(response.data.resources);
           
-          setSelectedResource(response.data.resources[0]._id || response.data.resources[0].id);
-        } else {
-          setIsLoading(false);
-          setError("No resources found. Please upload resources first.");
+          // Set selected resource from URL if available
+          if (resourceIdFromUrl) {
+            setSelectedResourceId(resourceIdFromUrl);
+            // Find the title for the selected resource
+            const selectedResource = response.data.resources.find(
+              (r: Resource) => r.id === resourceIdFromUrl || r._id === resourceIdFromUrl
+            );
+            if (selectedResource) {
+              setSelectedResourceTitle(selectedResource.title);
+            }
+          }
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error fetching resources:', error);
-        setError(error.message || "Failed to load resources. Please try again later.");
         toast.error('Failed to load resources');
-        setIsLoading(false);
+      } finally {
+        setLoading(false);
       }
     };
-
-    fetchResources().then(() => {
-      setIsLoading(false);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (selectedResource) {
-      fetchResourceAnalytics(selectedResource);
-    }
-  }, [selectedResource]);
-
-  const fetchResourceAnalytics = async (resourceId: string) => {
-    if (!resourceId) {
-      console.error('No resource ID provided');
-      return;
-    }
     
+    fetchResources();
+  }, [resourceIdFromUrl]);
+  
+  useEffect(() => {
+    if (selectedResourceId) {
+      fetchResourceAnalytics(selectedResourceId);
+    }
+  }, [selectedResourceId]);
+  
+  const fetchResourceAnalytics = async (resourceId: string) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      setLoading(true);
+      const response = await api.get(`/api/resources/${resourceId}/analytics`);
       
-      console.log('Fetching analytics for resource ID:', resourceId);
-      const analyticsData = await getResourceAnalytics(resourceId);
-      console.log('Analytics data:', analyticsData);
-      
-      setAnalyticsData(analyticsData);
-      setIsLoading(false);
-    } catch (error: any) {
-      console.error('Error fetching analytics:', error);
-      setError(error.message || "Failed to load analytics data for this resource.");
-      toast.error('Failed to load analytics data');
-      setIsLoading(false);
+      if (response.data) {
+        // Update URL with the selected resource ID
+        setSearchParams({ resourceId });
+        
+        setResourceAnalytics({
+          views: response.data.views || 0,
+          likes: response.data.likes || 0,
+          comments: response.data.comments || 0,
+          downloads: response.data.downloads || 0,
+          lastViewed: response.data.lastViewed || new Date().toISOString(),
+          dailyViews: response.data.dailyViews || [],
+          studentFeedback: response.data.studentFeedback || []
+        });
+        
+        // Find the title for the selected resource
+        const selectedResource = resources.find(
+          (r) => r.id === resourceId || r._id === resourceId
+        );
+        if (selectedResource) {
+          setSelectedResourceTitle(selectedResource.title);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching resource analytics:', error);
+      toast.error('Failed to load resource analytics');
+    } finally {
+      setLoading(false);
     }
   };
-
+  
   const handleResourceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const resourceId = e.target.value;
-    setSelectedResource(resourceId);
+    setSelectedResourceId(resourceId);
   };
+  
+  // Calculate totals from all resources
+  const totalViews = resources.reduce((sum, resource) => sum + (resource.analytics?.views || 0), 0);
+  const totalLikes = resources.reduce((sum, resource) => sum + (resource.analytics?.likes || 0), 0);
+  const totalComments = resources.reduce((sum, resource) => sum + (resource.analytics?.comments || 0), 0);
+  const totalDownloads = resources.reduce((sum, resource) => sum + (resource.analytics?.downloads || 0), 0);
+  
+  // Prepare data for the content distribution chart
+  const contentTypeData = [
+    { name: 'Documents', value: resources.filter(r => r.type === 'document').length },
+    { name: 'Videos', value: resources.filter(r => r.type === 'video').length },
+    { name: 'Links', value: resources.filter(r => r.type === 'link').length },
+    { name: 'Notes', value: resources.filter(r => r.type === 'note').length }
+  ].filter(item => item.value > 0);
 
-  const handleRetry = () => {
-    setError(null);
-    const currentResource = selectedResource;
-    if (resources.length === 0) {
-      setSelectedResource(null);
-      const fetchResources = async () => {
-        try {
-          setIsLoading(true);
-          const response = await api.get('/api/resources/faculty');
-          if (response.data.resources && response.data.resources.length > 0) {
-            setResources(response.data.resources);
-            setSelectedResource(response.data.resources[0]._id || response.data.resources[0].id);
-          } else {
-            setIsLoading(false);
-            setError("No resources found. Please upload resources first.");
-          }
-        } catch (error: any) {
-          console.error('Error retrying resource fetch:', error);
-          setError(error.message || "Failed to load resources. Please try again later.");
-          setIsLoading(false);
-        }
-      };
-      fetchResources();
-    } else if (currentResource) {
-      fetchResourceAnalytics(currentResource);
-    }
-  };
-
+  // Data for overall engagement metrics
+  const engagementData = [
+    { name: 'Views', value: totalViews },
+    { name: 'Likes', value: totalLikes },
+    { name: 'Comments', value: totalComments },
+    { name: 'Downloads', value: totalDownloads }
+  ];
+  
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Resource Analytics</h1>
-      
-      <div className="mb-6">
-        <label htmlFor="resource-select" className="block text-sm font-medium text-gray-700 mb-2">
-          Select Resource
-        </label>
-        <select
-          id="resource-select"
-          className="border border-gray-300 rounded-md p-2 w-full max-w-md"
-          value={selectedResource || ''}
-          onChange={handleResourceChange}
-          disabled={isLoading || resources.length === 0}
-        >
-          {resources.length === 0 && <option value="">No resources available</option>}
-          {resources.map(resource => (
-            <option key={resource._id || resource.id} value={resource._id || resource.id}>
-              {resource.title}
-            </option>
-          ))}
-        </select>
+      <h1 className="text-2xl font-bold mb-6 dark:text-gray-200">Content Analytics</h1>
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-lg font-semibold mb-4">Resource Analytics</h2>
+        <div className="mb-6">
+          <label htmlFor="resourceSelect" className="block text-sm font-medium text-gray-700 mb-2">
+            Select Resource to View Analytics:
+          </label>
+          <select
+            id="resourceSelect"
+            className="block w-full max-w-lg rounded-md border border-gray-300 py-2 px-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+            value={selectedResourceId}
+            onChange={handleResourceChange}
+          >
+            <option value="">Select a resource...</option>
+            {resources.map((resource) => (
+              <option key={resource.id || resource._id} value={resource.id || resource._id}>
+                {resource.title} (Semester {resource.semester}, {resource.subject})
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        {loading ? (
+          <div className="flex justify-center items-center h-40">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+          </div>
+        ) : selectedResourceId && resourceAnalytics ? (
+          <ResourceAnalyticsView 
+            analytics={resourceAnalytics} 
+            resourceTitle={selectedResourceTitle}
+            resourceId={selectedResourceId}
+          />
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <p>Select a resource to view detailed analytics</p>
+          </div>
+        )}
       </div>
-
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 my-4">
-          <div className="flex flex-col">
-            <p className="text-red-700 mb-2">{error}</p>
-            <button 
-              onClick={handleRetry} 
-              className="self-start px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-            >
-              Retry
-            </button>
+      
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <StatCard title="Content Uploaded" value={resources.length} icon="📚" color="bg-blue-50" />
+        <StatCard title="Total Views" value={totalViews} icon="👁️" color="bg-green-50" />
+        <StatCard title="Total Likes" value={totalLikes} icon="👍" color="bg-yellow-50" />
+        <StatCard title="Total Downloads" value={totalDownloads} icon="📥" color="bg-purple-50" />
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-semibold mb-4">Content Type Distribution</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={contentTypeData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={true}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                >
+                  {contentTypeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => [`${value} resources`, 'Count']} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      ) : !analyticsData ? (
-        <div className="mt-8 p-6 bg-white rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">No Analytics Available</h2>
-          <p className="text-gray-600">
-            Select a resource to view its analytics or upload new resources to track their engagement.
-          </p>
+        
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-semibold mb-4">Overall Engagement</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={engagementData}
+                margin={{ top: 10, right: 30, left: 20, bottom: 40 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`${value}`, 'Count']} />
+                <Bar dataKey="value" fill="#8884d8">
+                  {engagementData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      ) : (
+      </div>
+      
+
+    </div>
+  );
+}
+
+const StatCard = ({ title, value, icon, color = 'bg-blue-50' }: { title: string; value: number; icon: string; color?: string }) => {
+  return (
+    <div className={`${color} p-4 rounded-lg`}>
+      <div className="flex items-center">
+        <div className="text-2xl mr-3">{icon}</div>
         <div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <AnalyticsCard
-              title="Total Views"
-              value={analyticsData.views || 0}
-              icon={<BarChart2 className="h-6 w-6 text-indigo-600" />}
-            />
-            <AnalyticsCard
-              title="Unique Students"
-              value={analyticsData.uniqueViewers || 0}
-              icon={<Users className="h-6 w-6 text-blue-600" />}
-            />
-            <AnalyticsCard
-              title="Total Likes"
-              value={analyticsData.likes || 0}
-              icon={<ThumbsUp className="h-6 w-6 text-green-600" />}
-            />
-            <AnalyticsCard
-              title="Comments"
-              value={analyticsData.comments || 0}
-              icon={<MessageSquare className="h-6 w-6 text-purple-600" />}
-            />
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Daily Views</h2>
-            {analyticsData.dailyViews && analyticsData.dailyViews.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={analyticsData.dailyViews}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="date" 
-                      tickFormatter={(date) => {
-                        const d = new Date(date);
-                        return `${d.getDate()}/${d.getMonth() + 1}`;
-                      }} 
-                    />
-                    <YAxis />
-                    <Tooltip
-                      labelFormatter={(date) => new Date(date).toLocaleDateString()}
-                      formatter={(value) => [`${value} views`, 'Views']}
-                    />
-                    <Bar dataKey="count" fill="#4F46E5" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-gray-500">No daily view data available for this resource.</p>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Who Liked This Resource</h2>
-            {analyticsData.likedBy && analyticsData.likedBy.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {analyticsData.likedBy.map((user) => (
-                  <div key={user._id} className="flex items-center p-3 bg-gray-50 rounded-lg">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
-                      {user.avatar ? (
-                        <img src={user.avatar} alt={user.fullName} className="w-10 h-10 rounded-full" />
-                      ) : (
-                        <span className="text-indigo-600 font-medium">{user.fullName?.charAt(0) || 'U'}</span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">{user.fullName}</p>
-                      <p className="text-sm text-gray-500">{user.department || 'No department'}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">No likes yet for this resource.</p>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Comments</h2>
-            {analyticsData.commentDetails && analyticsData.commentDetails.length > 0 ? (
-              <div className="space-y-4">
-                {analyticsData.commentDetails.map((comment) => (
-                  <div key={comment._id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-start">
-                      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-3 flex-shrink-0">
-                        {comment.author.avatar ? (
-                          <img src={comment.author.avatar} alt={comment.author.fullName} className="w-10 h-10 rounded-full" />
-                        ) : (
-                          <span className="text-indigo-600 font-medium">{comment.author.fullName?.charAt(0) || 'U'}</span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-indigo-700">{comment.author.fullName}</p>
-                          <p className="text-sm text-gray-500 flex items-center">
-                            <Calendar className="inline h-3 w-3 mr-1" />
-                            {new Date(comment.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <p className="mt-2 text-gray-700 p-3 bg-white rounded border border-gray-200">{comment.content}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">No comments yet for this resource.</p>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Department Distribution</h2>
-            {analyticsData.departmentDistribution && analyticsData.departmentDistribution.length > 0 ? (
-              <div className="space-y-4">
-                {analyticsData.departmentDistribution.map((dept) => (
-                  <div key={dept.name} className="flex items-center">
-                    <span className="w-32 text-sm text-gray-600">{dept.name}</span>
-                    <div className="flex-1 mx-4">
-                      <div className="h-2 bg-gray-200 rounded-full">
-                        <div
-                          className="h-2 bg-indigo-600 rounded-full"
-                          style={{
-                            width: `${(dept.count / analyticsData.views) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <span className="text-sm text-gray-600">{dept.count}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">No department data available.</p>
-            )}
-          </div>
+          <p className="text-gray-500 text-sm">{title}</p>
+          <p className="text-2xl font-semibold text-gray-800">{value}</p>
         </div>
-      )}
+      </div>
     </div>
   );
 };
-
-export default AnalyticsPage;

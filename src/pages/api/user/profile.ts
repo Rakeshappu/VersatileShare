@@ -35,17 +35,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     console.log('Profile update request received:', req.body);
     
-    // Update user fields
-    const { fullName, phoneNumber, department, avatar, gender, batch, degree } = req.body;
+    // Update user fields based on role and permissions
+    const { 
+      fullName, 
+      phoneNumber, 
+      department, 
+      avatar, 
+      gender, 
+      batch, 
+      degree,
+      usn,
+      semester,
+      qualification,
+      designation
+    } = req.body;
     
-    if (fullName !== undefined) user.fullName = fullName;
+    // Common fields that can be updated by any user
     if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
-    if (department !== undefined) user.department = department;
+    if (gender !== undefined) user.gender = gender;
+    
+    // Role-specific fields - certain fields can only be updated if you're an admin
+    if (user.role === 'admin') {
+      // Admins can update everything
+      if (fullName !== undefined) user.fullName = fullName;
+      if (department !== undefined) user.department = department;
+      if (batch !== undefined) user.batch = batch;
+      if (degree !== undefined) user.degree = degree;
+      if (usn !== undefined) user.usn = usn;
+      if (semester !== undefined) user.semester = semester;
+    } else if (user.role === 'faculty') {
+      // Faculty can update their qualification and designation
+      if (qualification !== undefined) user.qualification = qualification;
+      if (designation !== undefined) user.designation = designation;
+    }
+    // Students can only update common fields defined above
     
     // Only update avatar if it's provided and valid
     const avatarUpdateTimestamp = Date.now();
     if (avatar !== undefined && avatar !== '') {
-      console.log('Updating user avatar to:', avatar);
+      console.log('Updating user avatar to:', avatar.substring(0, 100) + '...');
       
       // Clean up URL to avoid double timestamps
       let cleanAvatarUrl = avatar;
@@ -58,15 +86,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('Final avatar URL with timestamp:', user.avatar);
     }
     
-    if (gender !== undefined) user.gender = gender;
-    if (batch !== undefined) user.batch = batch;
-    if (degree !== undefined) user.degree = degree;
-    
     console.log('Updating user profile with data:', { 
-      fullName, phoneNumber, department, 
+      phoneNumber, 
       avatarProvided: !!avatar,
-      gender, batch, degree,
-      finalAvatar: user.avatar
+      gender,
+      finalAvatar: user.avatar,
+      role: user.role,
+      qualificationUpdated: user.role === 'faculty' && qualification !== undefined,
+      designationUpdated: user.role === 'faculty' && designation !== undefined,
     });
     
     await user.save();
@@ -82,13 +109,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         email: user.email,
         role: user.role,
         department: user.department,
-        phoneNumber: user.phoneNumber,
+        phoneNumber: user.phoneNumber || '',
         avatar: user.avatar, // The avatar now has a timestamp for cache busting
         gender: user.gender,
         batch: user.batch,
         degree: user.degree,
-        isVerified: user.isEmailVerified,
+        usn: user.usn,
         semester: user.semester,
+        qualification: user.qualification,
+        designation: user.designation,
+        isVerified: user.isEmailVerified,
         notifications: user.notifications
       }
     });

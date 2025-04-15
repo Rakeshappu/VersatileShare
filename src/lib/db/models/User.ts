@@ -32,7 +32,7 @@ const userSchema = new mongoose.Schema({
   },
   phoneNumber: {
     type: String,
-    required: true,
+    default: '',
   },
   semester: {
     type: Number,
@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isAdminVerified: {
+    type: Boolean,
+    default: false,
+  },
   avatar: {
     type: String,
     default: '',
@@ -64,6 +68,18 @@ const userSchema = new mongoose.Schema({
     default: '',
   },
   degree: {
+    type: String,
+    default: '',
+  },
+  usn: {
+    type: String,
+    default: '',
+  },
+  qualification: {
+    type: String,
+    default: '',
+  },
+  designation: {
     type: String,
     default: '',
   },
@@ -147,6 +163,20 @@ userSchema.methods.addNotification = async function(notificationData: {
   }
   
   return this.save();
+};
+
+// Method for admin to verify a user
+userSchema.methods.verifyByAdmin = async function() {
+  this.isAdminVerified = true;
+  await this.save();
+  return this;
+};
+
+// Method for admin to unverify a user
+userSchema.methods.unverifyByAdmin = async function() {
+  this.isAdminVerified = false;
+  await this.save();
+  return this;
 };
 
 // Safe export pattern for Next.js and Mongoose

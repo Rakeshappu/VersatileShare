@@ -1,3 +1,4 @@
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import { User } from '../../../lib/db/models/User';
 import connectDB from '../../../lib/db/connect';
@@ -58,7 +59,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     user.verificationCodeExpiry = undefined;
     await user.save();
 
-    res.json({ message: 'Email verified successfully' });
+    res.json({ 
+      message: 'Email verified successfully',
+      isAdminVerified: user.isAdminVerified,
+      requiresAdminVerification: true,
+      role: user.role
+    });
   } catch (error) {
     console.error('OTP verification error:', error);
     res.status(500).json({ error: 'Internal server error' });

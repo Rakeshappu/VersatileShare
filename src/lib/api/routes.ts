@@ -1,10 +1,18 @@
+
 export const API_ROUTES = {
   AUTH: {
     LOGIN: '/api/auth/login',
-    REGISTER: '/api/auth/signup',
+    SIGNUP: '/api/auth/signup',
     ME: '/api/auth/me',
     LOGOUT: '/api/auth/logout',
     REFRESH: '/api/auth/refresh-token',
+    VERIFY_EMAIL: '/api/auth/verify-email',
+    VERIFY_OTP: '/api/auth/verify-otp',
+    SEND_OTP: '/api/auth/send-otp',
+    RESEND_VERIFICATION: '/api/auth/resend-verification',
+    GOOGLE: '/api/auth/google',
+    ADMIN_CHECK: '/api/auth/admin-check',
+    DEBUG_TOKEN: '/api/auth/debug-token'
   },
   USER: {
     PROFILE: '/api/user/profile',
@@ -13,6 +21,13 @@ export const API_ROUTES = {
     NOTIFICATIONS: '/api/user/notifications',
     PASSWORD: '/api/user/password',
     SECURITY: '/api/user/security',
+    STATS: '/api/user/stats',
+  },
+  ADMIN: {
+    ELIGIBLE_USNS: '/api/admin/eligible-usns',
+    BULK_ELIGIBLE_USNS: '/api/admin/eligible-usns/bulk',
+    DELETE_ELIGIBLE_USN: (id: string) => `/api/admin/eligible-usns/${id}`,
+    USERS: '/api/admin/users',
   },
   RESOURCES: {
     LIST: '/api/resources',

@@ -66,14 +66,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Update user
+    // Update user email verification
     user.isEmailVerified = true;
     user.verificationCode = undefined;
     user.verificationCodeExpiry = undefined;
     await user.save();
     console.log('Email verification successful for:', email);
 
-    res.status(200).json({ message: 'Email verified successfully' });
+    res.status(200).json({ 
+      message: 'Email verified successfully',
+      isAdminVerified: user.isAdminVerified,
+      requiresAdminVerification: true,
+      role: user.role
+    });
   } catch (error) {
     console.error('OTP verification error:', error);
     res.status(500).json({ error: 'Internal server error', details: String(error) });
